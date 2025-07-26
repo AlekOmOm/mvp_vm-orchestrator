@@ -8,11 +8,15 @@
 - Process streaming for non-interactive targets (`make status`, `make build`, …)
 - Remote log streaming via SSH (`docker logs -f`)
 - Persistent job history stored in Postgres
+- **NEW**: VM configuration management with DynamoDB
+- **NEW**: Command management per VM with serverless API
+- **NEW**: Job caching with AWS Lambda for improved performance
 
 ## Tech stack
 - Frontend: Svelte + Vite + Socket.io-client
 - Backend: Node.js (Express) + Socket.io
-- Database: Postgres 16
+- Database: Postgres 16 (job history) + DynamoDB (VM/command config)
+- Cloud: AWS Lambda + API Gateway (serverless functions)
 - Container orchestration: Docker Compose
 
 ## Quick start
@@ -40,18 +44,43 @@ Reset workspace:
 make clean
 ```
 
-Run automated POC validation:
+Run automated validation:
 
 ```bash
 make validate
 ```
+
+## Serverless Setup (Optional)
+
+For enhanced VM and command management, deploy the serverless functions:
+
+```bash
+# Configure AWS credentials
+export AWS_ACCESS_KEY_ID=your-access-key
+export AWS_SECRET_ACCESS_KEY=your-secret-key
+
+# Deploy serverless functions
+./scripts/deploy-serverless.sh
+
+# Update .env with the deployed API Gateway URL
+echo "SERVERLESS_API_URL=https://your-api-id.execute-api.region.amazonaws.com" >> .env
+```
+
+The serverless functions provide:
+- VM configuration CRUD operations
+- Command management per VM
+- Job caching for improved performance
+
+See `serverless/README.md` for detailed API documentation.
 
 ## Project layout
 ```
 backend      src/server.js
 frontend     frontend/src/*
 db           db/database.sql
+serverless   serverless functions for VM/command management
 docs         Product & architecture documents
+scripts      Deployment and utility scripts
 ```
 
 ## How it works
