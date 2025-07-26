@@ -1,8 +1,8 @@
 <script>
   import { createEventDispatcher } from 'svelte';
-  import { Button } from '$lib/components/ui/button/index.js';
-  import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card/index.js';
-  import { Badge } from '$lib/components/ui/badge/index.js';
+  import { Button } from '$lib/components/ui/button';
+  import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
+  import { Badge } from '$lib/components/ui/badge';
   import { Terminal, Play, Loader2 } from 'lucide-svelte';
 
   export let commands = {};

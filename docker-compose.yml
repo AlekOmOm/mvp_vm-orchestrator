@@ -1,11 +1,13 @@
 services:
   postgres:
     image: postgres:16
-    container_name: vm_orchestrator_poc_db
+    container_name: ${DB_CONTAINER_NAME}
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: vm_orchestrator_poc
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:

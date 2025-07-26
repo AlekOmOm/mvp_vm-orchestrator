@@ -1,7 +1,10 @@
-
-
 .PHONY: validate
 validate:
+	@echo "🔍 Running MVP frontend validation..."
+	@npm run test:mvp-frontend
+
+.PHONY: validate-poc
+validate-poc:
 	@echo "🔍 Running POC site validation..."
 	@npm install playwright
 	@npx playwright install chromium
@@ -17,7 +20,8 @@ help:
 	@echo "  make db-init     - (Re)Initialize the database schema"
 	@echo "  make validate    - Run POC site validation tests"
 
-DB_CONTAINER_NAME=vm_orchestrator_poc_db
+include .env
+export
 
 .PHONY: setup
 setup:
@@ -31,9 +35,9 @@ setup:
 .PHONY: db-init
 db-init:
 	@echo "⏳ Waiting for database to be ready..."
-	@while ! docker exec $(DB_CONTAINER_NAME) pg_isready -U user -d vm_orchestrator_poc; do sleep 1; done
+	@while ! docker exec $(DB_CONTAINER_NAME) pg_isready -U $(POSTGRES_USER) -d $(POSTGRES_DB); do sleep 1; done
 	@echo "🗄️  Initializing database schema..."
-	@docker exec -i $(DB_CONTAINER_NAME) psql -U user -d vm_orchestrator_poc < db/database.sql
+	@docker exec -i $(DB_CONTAINER_NAME) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) < db/database.sql
 	@echo "✅ Database initialized"
 
 .PHONY: dev
