@@ -1,25 +1,29 @@
 <script>
+  import { derived } from 'svelte/store';
   import { Badge } from '$lib/components/ui/badge';
   
-  export let status;
+  let { status } = $props();
 
-  $: variant = {
+  // $derived or $effect
+
+  let variant = $derived({
     'connecting': 'secondary',
     'connected': 'default',
     'disconnected': 'destructive'
-  }[status] || 'outline';
+  }[status] || 'outline');
 
-  $: statusText = {
+
+  let statusText = $derived({
     'connecting': 'Connecting...',
     'connected': 'Connected',
     'disconnected': 'Disconnected'
-  }[status] || 'Unknown';
+  }[status] || 'Unknown');
 
-  $: statusIcon = {
+  let statusIcon = $derived({
     'connecting': '🔄',
     'connected': '✅',
     'disconnected': '❌'
-  }[status] || '❓';
+  }[status] || '❓');
 </script>
 
 <Badge {variant} class="flex items-center gap-2">

@@ -16,9 +16,7 @@
   import { Select } from '$lib/components/ui/select';
   import { Save, X, Loader2 } from 'lucide-svelte';
 
-  export let command = null; // null for create mode, command object for edit mode
-  export let vmId = null; // Required for creating commands
-  export let loading = false;
+  let { command = null, vmId = null, loading = false, oncreate, onupdate, oncancel } = $props();
 
   const dispatch = createEventDispatcher();
 

@@ -20,9 +20,7 @@
     Zap
   } from 'lucide-svelte';
 
-  export let command;
-  export let isExecuting = false;
-  export let isCurrentCommand = false;
+  let { command, isExecuting = false, isCurrentCommand = false, onexecute, onedit, ondelete } = $props();
 
   const dispatch = createEventDispatcher();
 

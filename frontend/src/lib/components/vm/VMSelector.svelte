@@ -23,8 +23,8 @@
 
   const dispatch = createEventDispatcher();
 
-  export let disabled = false;
-  export let showManageButton = true;
+   let disabled = false;
+   let showManageButton = true;
 
   function handleVMChange(event) {
     const vmId = event.target.value;

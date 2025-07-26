@@ -5,7 +5,7 @@
   import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '$lib/components/ui/table';
   import { RefreshCw, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-svelte';
 
-  export let jobs = [];
+  let jobs = $props();
 
   const dispatch = createEventDispatcher();
 

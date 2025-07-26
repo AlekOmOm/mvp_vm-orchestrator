@@ -1,0 +1,173 @@
+import { render, fireEvent } from "@testing-library/svelte";
+import { vi, describe, it, expect, beforeEach } from "vitest";
+import { flushSync } from 'svelte';
+import VMForm from "../src/lib/components/vm/VMForm.svelte";
+
+describe("VMForm component (Svelte 5)", () => {
+   beforeEach(() => {
+      vi.clearAllMocks();
+   });
+
+   it("renders form fields correctly", () => {
+      const { getByLabelText, getByPlaceholderText } = render(VMForm);
+
+      expect(getByLabelText(/VM Name/i)).toBeTruthy();
+      expect(getByLabelText(/Host/i)).toBeTruthy();
+      expect(getByLabelText(/Username/i)).toBeTruthy();
+      expect(getByLabelText(/Environment/i)).toBeTruthy();
+      expect(getByPlaceholderText(/prometheus-vm/i)).toBeTruthy();
+      expect(getByPlaceholderText(/192\.168/i)).toBeTruthy();
+      expect(getByPlaceholderText(/ubuntu/i)).toBeTruthy();
+   });
+
+   it("shows validation errors when required fields are empty", async () => {
+      const { getByRole, getByText } = render(VMForm);
+
+      await fireEvent.click(getByRole("button", { name: /create vm/i }));
+
+      // Wait for validation errors to appear
+      await vi.waitFor(() => {
+         expect(getByText(/vm name is required/i)).toBeTruthy();
+         expect(getByText(/host is required/i)).toBeTruthy();
+         expect(getByText(/username is required/i)).toBeTruthy();
+      });
+   });
+
+   it("dispatches submit event with correct data for new VM", async () => {
+      const { component, getByRole, getByPlaceholderText } = render(VMForm);
+      
+      const submitSpy = vi.fn();
+      component.$on("submit", submitSpy);
+
+      // Fill form fields
+      await fireEvent.input(getByPlaceholderText(/prometheus-vm/i), {
+         target: { value: "test-vm" },
+      });
+      await fireEvent.input(getByPlaceholderText(/192\.168/i), {
+         target: { value: "192.168.1.100" },
+      });
+      await fireEvent.input(getByPlaceholderText(/ubuntu/i), {
+         target: { value: "ubuntu" },
+      });
+
+      await fireEvent.click(getByRole("button", { name: /create vm/i }));
+
+      expect(submitSpy).toHaveBeenCalledTimes(1);
+      expect(submitSpy.mock.calls[0][0].detail).toEqual({
+         vmData: {
+            name: "test-vm",
+            host: "192.168.1.100",
+            userName: "ubuntu",
+            environment: "development",
+            sshHost: "",
+         },
+         isEdit: false,
+      });
+   });
+
+   it("dispatches submit event with correct data for editing VM", async () => {
+      const existingVM = {
+         id: 1,
+         name: "existing-vm",
+         host: "192.168.1.100",
+         userName: "admin",
+         environment: "production",
+         sshHost: "prod-vm",
+      };
+
+      const { component, getByRole, getByPlaceholderText } = render(VMForm, {
+         props: { vm: existingVM },
+      });
+
+      const submitSpy = vi.fn();
+      component.$on("submit", submitSpy);
+
+      // Modify the name
+      const nameInput = getByPlaceholderText(/prometheus-vm/i);
+      await fireEvent.input(nameInput, { target: { value: "modified-vm" } });
+
+      await fireEvent.click(getByRole("button", { name: /update vm/i }));
+
+      expect(submitSpy).toHaveBeenCalledTimes(1);
+      expect(submitSpy.mock.calls[0][0].detail).toEqual({
+         vmData: {
+            name: "modified-vm",
+            host: "192.168.1.100",
+            userName: "admin",
+            environment: "production",
+            sshHost: "prod-vm",
+         },
+         isEdit: true,
+      });
+   });
+
+   it("dispatches cancel event when cancel button is clicked", async () => {
+      const { component, getByRole } = render(VMForm);
+      
+      const cancelSpy = vi.fn();
+      component.$on("cancel", cancelSpy);
+
+      await fireEvent.click(getByRole("button", { name: /cancel/i }));
+
+      expect(cancelSpy).toHaveBeenCalledTimes(1);
+   });
+
+   it("disables inputs while loading", async () => {
+      const { getByPlaceholderText, rerender } = render(VMForm, {
+         props: { loading: false },
+      });
+
+      // Initially inputs should be enabled
+      expect(getByPlaceholderText(/prometheus-vm/i).disabled).toBe(false);
+
+      // Update to loading state
+      await rerender({ loading: true });
+      expect(getByPlaceholderText(/prometheus-vm/i).disabled).toBe(true);
+      expect(getByPlaceholderText(/192\.168/i).disabled).toBe(true);
+      expect(getByPlaceholderText(/ubuntu/i).disabled).toBe(true);
+   });
+
+   it("shows error message when error prop is provided", () => {
+      const errorMessage = "Something went wrong";
+      const { getByText } = render(VMForm, {
+         props: { error: errorMessage },
+      });
+
+      expect(getByText(errorMessage)).toBeTruthy();
+   });
+
+   it("updates form data when vm prop changes", async () => {
+      const initialVM = {
+         id: 1,
+         name: "initial",
+         host: "1.1.1.1",
+         userName: "user1",
+         environment: "development",
+         sshHost: "",
+      };
+
+      const updatedVM = {
+         id: 1,
+         name: "updated",
+         host: "2.2.2.2",
+         userName: "user2",
+         environment: "production",
+         sshHost: "prod",
+      };
+
+      const { getByPlaceholderText, rerender } = render(VMForm, {
+         props: { vm: initialVM },
+      });
+
+      // Check initial values
+      expect(getByPlaceholderText(/prometheus-vm/i).value).toBe("initial");
+      expect(getByPlaceholderText(/192\.168/i).value).toBe("1.1.1.1");
+
+      // Update the vm prop
+      await rerender({ vm: updatedVM });
+
+      // Check updated values
+      expect(getByPlaceholderText(/prometheus-vm/i).value).toBe("updated");
+      expect(getByPlaceholderText(/192\.168/i).value).toBe("2.2.2.2");
+   });
+});

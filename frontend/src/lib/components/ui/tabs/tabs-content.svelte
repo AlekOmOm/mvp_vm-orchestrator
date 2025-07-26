@@ -4,7 +4,7 @@
 
   let className = undefined;
   export { className as class };
-  export let value = "";
+  let value = "";
 
   const activeTab = getContext('tabs');
 

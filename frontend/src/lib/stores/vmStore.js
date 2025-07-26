@@ -1,55 +1,57 @@
 /**
  * VM Store
  *
- * Svelte store for managing VM state and operations.
+ * Enhanced VM store using base store pattern for consistent state management.
  * Provides reactive state management for VM CRUD operations.
  *
  * @fileoverview VM state management store
  */
 
-import { writable, derived } from 'svelte/store';
+import { derived } from 'svelte/store';
+import { createBaseStore, withLoadingState } from './baseStore.js';
 import { vmService } from '../services/ApiService.js';
 
 /**
- * Create VM store with reactive state management
+ * Create VM store with enhanced base store functionality
  */
 function createVMStore() {
-  // Core state
-  const { subscribe, set, update } = writable({
+  // Initial state
+  const initialState = {
     vms: [],
     selectedVM: null,
     loading: false,
     error: null,
+  };
+
+  // Create base store with logging enabled
+  const baseStore = createBaseStore(initialState, {
+    name: 'VMStore',
+    enableLogging: true
   });
 
   return {
-    subscribe,
+    ...baseStore,
 
     /**
      * Load all VMs from API
      */
     async loadVMs() {
-      update(state => ({ ...state, loading: true, error: null }));
-      
-      try {
+      return withLoadingState(baseStore, async () => {
         const vms = await vmService.getVMs();
-        update(state => ({ 
-          ...state, 
-          vms, 
-          loading: false,
-          // Keep selected VM if it still exists
-          selectedVM: state.selectedVM && vms.find(vm => vm.id === state.selectedVM.id) 
-            ? vms.find(vm => vm.id === state.selectedVM.id)
-            : null
-        }));
-      } catch (error) {
-        console.error('Failed to load VMs:', error);
-        update(state => ({ 
-          ...state, 
-          loading: false, 
-          error: error.message 
-        }));
-      }
+        
+        baseStore.updateWithLoading(state => {
+          return {
+            ...state,
+            vms,
+            // Keep selected VM if it still exists
+            selectedVM: state.selectedVM && vms.find(vm => vm.id === state.selectedVM.id) 
+              ? vms.find(vm => vm.id === state.selectedVM.id)
+              : null
+          };
+        }, false);
+        
+        return vms;
+      }, { operationName: 'loadVMs', logOperation: true });
     },
 
     /**
@@ -57,25 +59,16 @@ function createVMStore() {
      * @param {Object} vmData - VM data
      */
     async createVM(vmData) {
-      update(state => ({ ...state, loading: true, error: null }));
-      
-      try {
+      return withLoadingState(baseStore, async () => {
         const newVM = await vmService.createVM(vmData);
-        update(state => ({ 
-          ...state, 
-          vms: [...state.vms, newVM],
-          loading: false 
-        }));
+        
+        baseStore.updateWithLoading(state => ({
+          ...state,
+          vms: [...state.vms, newVM]
+        }), false);
+        
         return newVM;
-      } catch (error) {
-        console.error('Failed to create VM:', error);
-        update(state => ({ 
-          ...state, 
-          loading: false, 
-          error: error.message 
-        }));
-        throw error;
-      }
+      }, { operationName: 'createVM', logOperation: true });
     },
 
     /**
@@ -84,26 +77,17 @@ function createVMStore() {
      * @param {Object} updates - VM updates
      */
     async updateVM(id, updates) {
-      update(state => ({ ...state, loading: true, error: null }));
-      
-      try {
+      return withLoadingState(baseStore, async () => {
         const updatedVM = await vmService.updateVM(id, updates);
-        update(state => ({
+        
+        baseStore.updateWithLoading(state => ({
           ...state,
           vms: state.vms.map(vm => vm.id === id ? updatedVM : vm),
-          selectedVM: state.selectedVM?.id === id ? updatedVM : state.selectedVM,
-          loading: false
-        }));
+          selectedVM: state.selectedVM?.id === id ? updatedVM : state.selectedVM
+        }), false);
+        
         return updatedVM;
-      } catch (error) {
-        console.error('Failed to update VM:', error);
-        update(state => ({ 
-          ...state, 
-          loading: false, 
-          error: error.message 
-        }));
-        throw error;
-      }
+      }, { operationName: 'updateVM', logOperation: true });
     },
 
     /**
@@ -111,52 +95,43 @@ function createVMStore() {
      * @param {string} id - VM ID
      */
     async deleteVM(id) {
-      update(state => ({ ...state, loading: true, error: null }));
-      
-      try {
+      return withLoadingState(baseStore, async () => {
         await vmService.deleteVM(id);
-        update(state => ({
+        
+        baseStore.updateWithLoading(state => ({
           ...state,
           vms: state.vms.filter(vm => vm.id !== id),
-          selectedVM: state.selectedVM?.id === id ? null : state.selectedVM,
-          loading: false
-        }));
-      } catch (error) {
-        console.error('Failed to delete VM:', error);
-        update(state => ({ 
-          ...state, 
-          loading: false, 
-          error: error.message 
-        }));
-        throw error;
-      }
+          selectedVM: state.selectedVM?.id === id ? null : state.selectedVM
+        }), false);
+      }, { operationName: 'deleteVM', logOperation: true });
     },
 
     /**
-     * Select a VM for operations
+     * Select a VM
      * @param {Object|null} vm - VM to select or null to deselect
      */
     selectVM(vm) {
-      update(state => ({ ...state, selectedVM: vm }));
+      baseStore.setState({ selectedVM: vm });
     },
 
     /**
-     * Clear error state
+     * Get VM by ID
+     * @param {string} id - VM ID
+     * @returns {Object|null} VM object or null
      */
-    clearError() {
-      update(state => ({ ...state, error: null }));
+    getVMById(id) {
+      const state = baseStore.getValue();
+      return state.vms.find(vm => vm.id === id) || null;
     },
 
     /**
-     * Reset store to initial state
+     * Filter VMs by environment
+     * @param {string} environment - Environment to filter by
+     * @returns {Array} Filtered VMs
      */
-    reset() {
-      set({
-        vms: [],
-        selectedVM: null,
-        loading: false,
-        error: null,
-      });
+    getVMsByEnvironment(environment) {
+      const state = baseStore.getValue();
+      return state.vms.filter(vm => vm.environment === environment);
     }
   };
 }
@@ -178,3 +153,18 @@ export const vmOptions = derived(vms, $vms =>
     vm
   }))
 );
+
+// Additional derived stores
+export const vmsByEnvironment = derived(vms, $vms => {
+  const grouped = {};
+  $vms.forEach(vm => {
+    if (!grouped[vm.environment]) {
+      grouped[vm.environment] = [];
+    }
+    grouped[vm.environment].push(vm);
+  });
+  return grouped;
+});
+
+export const hasVMs = derived(vms, $vms => $vms.length > 0);
+export const vmCount = derived(vms, $vms => $vms.length);

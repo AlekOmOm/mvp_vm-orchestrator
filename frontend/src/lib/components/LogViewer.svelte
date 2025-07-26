@@ -5,8 +5,7 @@
   import { Badge } from '$lib/components/ui/badge';
   import { ArrowDown, RotateCcw, Trash2, Terminal } from 'lucide-svelte';
 
-  export let currentJob = null;
-  export let logLines = [];
+  let { currentJob, logLines } = $props();
 
   let logContainer;
   let autoScroll = true;

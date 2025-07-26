@@ -21,8 +21,8 @@
   } from 'lucide-svelte';
   import { sshHostService } from '$lib/services/SSHHostService.js';
 
-  export let vms = [];
-  export let loading = false;
+   let vms = [];
+   let loading = false;
 
   const dispatch = createEventDispatcher();
 

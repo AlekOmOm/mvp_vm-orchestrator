@@ -22,11 +22,11 @@
   import VM from './VM.svelte';
   import { getEnvironmentDisplay, formatVMConnection } from './vm.js';
 
-  export let vms = [];
-  export let commandCounts = {};
-  export let selectedVMId = null;
-  export let loading = false;
-  export let executing = false;
+   let vms = [];
+   let commandCounts = {};
+   let selectedVMId = null;
+   let loading = false;
+   let executing = false;
 
   const dispatch = createEventDispatcher();
 

@@ -6,10 +6,9 @@
 -->
 
 <script>
-  export let connectionStatus = null;
-  export let size = 'sm'; // 'sm', 'md', 'lg'
-  export let showText = true;
-  export let className = '';
+  import { derived } from 'svelte/store';
+
+  let { connectionStatus = null, size = 'sm', showText = true, className = '' } = $props();
 
   // Size configurations
   const sizeConfig = {

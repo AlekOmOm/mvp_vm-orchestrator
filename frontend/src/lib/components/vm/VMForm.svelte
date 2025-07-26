@@ -13,37 +13,53 @@
   import { Alert, AlertDescription } from '$lib/components/ui/alert';
   import { Loader2 } from 'lucide-svelte';
 
-  export let vm = null; // For editing existing VM
-  export let loading = false;
-  export let error = null;
+  // Props using Svelte 5 runes
+  let { vm = null, loading = false, error = null } = $props();
 
   const dispatch = createEventDispatcher();
 
-  // Form data
-  let formData = {
-    name: vm?.name || '',
-    host: vm?.host || '',
-    userName: vm?.userName || '',
-    environment: vm?.environment || 'development',
-    sshHost: vm?.sshHost || ''
-  };
+  // Form data state
+  let formData = $state({
+    name: '',
+    host: '',
+    userName: '',
+    environment: 'development',
+    sshHost: ''
+  });
 
-  let validationErrors = [];
+  let validationErrors = $state([]);
+
+  // Update form data when vm prop changes
+  $effect(() => {
+    if (vm) {
+      formData.name = vm.name || '';
+      formData.host = vm.host || '';
+      formData.userName = vm.userName || '';
+      formData.environment = vm.environment || 'development';
+      formData.sshHost = vm.sshHost || '';
+    } else {
+      formData.name = '';
+      formData.host = '';
+      formData.userName = '';
+      formData.environment = 'development';
+      formData.sshHost = '';
+    }
+  });
 
   /**
    * Validate form data
    */
   function validateForm() {
-    validationErrors = [];
-    
+    validationErrors.length = 0;
+
     if (!formData.name.trim()) {
       validationErrors.push('VM name is required');
     }
-    
+
     if (!formData.host.trim()) {
       validationErrors.push('Host is required');
     }
-    
+
     if (!formData.userName.trim()) {
       validationErrors.push('Username is required');
     }
@@ -70,17 +86,6 @@
    */
   function handleCancel() {
     dispatch('cancel');
-  }
-
-  // Update form data when vm prop changes
-  $: if (vm) {
-    formData = {
-      name: vm.name || '',
-      host: vm.host || '',
-      userName: vm.userName || '',
-      environment: vm.environment || 'development',
-      sshHost: vm.sshHost || ''
-    };
   }
 </script>
 

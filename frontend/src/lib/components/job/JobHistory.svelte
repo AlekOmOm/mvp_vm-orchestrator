@@ -27,10 +27,7 @@
 
   const dispatch = createEventDispatcher();
 
-  export let showVMJobs = true; // Show VM-specific cached jobs
-  export let showAllJobs = true; // Show all database jobs
-  export let compact = false;
-  export let limit = 20;
+  let { showVMJobs = true, showAllJobs = true, compact = false, limit = 20, onviewlogs, onretry } = $props();
 
   // Filter state
   let statusFilter = 'all';

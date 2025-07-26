@@ -6,7 +6,7 @@
 -->
 
 <script>
-  import { createEventDispatcher } from 'svelte';
+
   import { Button } from '$lib/components/ui/button';
   import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
   import { Badge } from '$lib/components/ui/badge';
@@ -19,38 +19,43 @@
     CheckCircle2
   } from 'lucide-svelte';
 
-  export let vm;
-  export let isSelected = false;
-  export let isExecuting = false;
-  export let commandCount = 0;
-
-  const dispatch = createEventDispatcher();
+  // Props using Svelte 5 runes
+  let {
+    vm,
+    isSelected = false,
+    isExecuting = false,
+    commandCount = 0,
+    onselect,
+    onedit,
+    ondelete,
+    onmanagecommands
+  } = $props();
 
   function handleSelect() {
-    dispatch('select', vm);
+    onselect?.(vm);
   }
 
   function handleEdit() {
-    dispatch('edit', vm);
+    onedit?.(vm);
   }
 
   function handleDelete() {
-    dispatch('delete', vm);
+    ondelete?.(vm);
   }
 
   function handleManageCommands() {
-    dispatch('manage-commands', vm);
+    onmanagecommands?.(vm);
   }
 
-  // Get environment badge variant
-  $: environmentVariant = {
+  // Get environment badge variant using $derived
+  const environmentVariant = $derived({
     'development': 'secondary',
     'staging': 'outline',
     'production': 'destructive'
-  }[vm.environment] || 'outline';
+  }[vm.environment] || 'outline');
 
-  // Format creation date
-  $: createdDate = new Date(vm.createdAt).toLocaleDateString();
+  // Format creation date using $derived
+  const createdDate = $derived(new Date(vm.createdAt).toLocaleDateString());
 </script>
 
 <Card class="transition-all duration-200 {isSelected ? 'ring-2 ring-primary border-primary' : 'hover:shadow-md'}">

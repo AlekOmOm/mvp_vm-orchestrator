@@ -20,9 +20,7 @@
     RotateCcw
   } from 'lucide-svelte';
 
-  export let job;
-  export let showActions = true;
-  export let compact = false;
+  let { job, showActions = true, compact = false, onviewlogs, onretry } = $props();
 
   const dispatch = createEventDispatcher();
 

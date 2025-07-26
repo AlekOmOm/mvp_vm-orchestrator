@@ -1,53 +1,53 @@
 /**
  * Job Store
  *
- * Svelte store for managing job state and operations.
+ * Enhanced job store using base store pattern for consistent state management.
  * Provides reactive state management for job history and caching.
  *
  * @fileoverview Job state management store
  */
 
-import { writable, derived } from 'svelte/store';
+import { derived } from 'svelte/store';
+import { createBaseStore, withLoadingState } from './baseStore.js';
 import { jobService } from '../services/ApiService.js';
 import { selectedVM } from './vmStore.js';
 
 /**
- * Create job store with reactive state management
+ * Create job store with enhanced base store functionality
  */
 function createJobStore() {
-  // Core state
-  const { subscribe, set, update } = writable({
+  // Initial state
+  const initialState = {
     jobs: [],
     jobsByVM: {}, // Cache jobs by VM ID
     currentJob: null,
     loading: false,
     error: null,
+  };
+
+  // Create base store with logging enabled
+  const baseStore = createBaseStore(initialState, {
+    name: 'JobStore',
+    enableLogging: true
   });
 
   return {
-    subscribe,
+    ...baseStore,
 
     /**
      * Load job history from API
      */
     async loadJobs() {
-      update(state => ({ ...state, loading: true, error: null }));
-      
-      try {
+      return withLoadingState(baseStore, async () => {
         const jobs = await jobService.getJobs();
-        update(state => ({ 
-          ...state, 
-          jobs, 
-          loading: false 
-        }));
-      } catch (error) {
-        console.error('Failed to load jobs:', error);
-        update(state => ({ 
-          ...state, 
-          loading: false, 
-          error: error.message 
-        }));
-      }
+        
+        baseStore.updateWithLoading(state => ({
+          ...state,
+          jobs
+        }), false);
+        
+        return jobs;
+      }, { operationName: 'loadJobs', logOperation: true });
     },
 
     /**
@@ -58,26 +58,19 @@ function createJobStore() {
     async loadVMJobs(vmId, options = {}) {
       if (!vmId) return;
       
-      update(state => ({ ...state, loading: true, error: null }));
-      
-      try {
+      return withLoadingState(baseStore, async () => {
         const jobs = await jobService.getVMJobs(vmId, options);
-        update(state => ({ 
+        
+        baseStore.updateWithLoading(state => ({ 
           ...state, 
           jobsByVM: {
             ...state.jobsByVM,
             [vmId]: jobs
-          },
-          loading: false 
-        }));
-      } catch (error) {
-        console.error('Failed to load VM jobs:', error);
-        update(state => ({ 
-          ...state, 
-          loading: false, 
-          error: error.message 
-        }));
-      }
+          }
+        }), false);
+        
+        return jobs;
+      }, { operationName: `loadVMJobs(${vmId})`, logOperation: true });
     },
 
     /**
@@ -85,7 +78,7 @@ function createJobStore() {
      * @param {Object|null} job - Current job or null
      */
     setCurrentJob(job) {
-      update(state => ({ ...state, currentJob: job }));
+      baseStore.setState({ currentJob: job });
     },
 
     /**
@@ -93,10 +86,10 @@ function createJobStore() {
      * @param {Object} job - Job object
      */
     addJob(job) {
-      update(state => ({
+      baseStore.updateWithLoading(state => ({
         ...state,
         jobs: [job, ...state.jobs].slice(0, 100) // Keep last 100 jobs
-      }));
+      }), false);
     },
 
     /**
@@ -105,7 +98,7 @@ function createJobStore() {
      * @param {Object} updates - Job updates
      */
     updateJob(jobId, updates) {
-      update(state => ({
+      baseStore.updateWithLoading(state => ({
         ...state,
         jobs: state.jobs.map(job => 
           job.id === jobId ? { ...job, ...updates } : job
@@ -113,41 +106,50 @@ function createJobStore() {
         currentJob: state.currentJob?.id === jobId 
           ? { ...state.currentJob, ...updates }
           : state.currentJob
-      }));
+      }), false);
     },
 
     /**
-     * Get jobs for a specific VM from cache
+     * Remove job from history
+     * @param {string} jobId - Job ID
+     */
+    removeJob(jobId) {
+      baseStore.updateWithLoading(state => ({
+        ...state,
+        jobs: state.jobs.filter(job => job.id !== jobId),
+        currentJob: state.currentJob?.id === jobId ? null : state.currentJob
+      }), false);
+    },
+
+    /**
+     * Clear job history
+     */
+    clearJobs() {
+      baseStore.setState({
+        jobs: [],
+        jobsByVM: {},
+        currentJob: null
+      });
+    },
+
+    /**
+     * Get jobs for a specific VM
      * @param {string} vmId - VM ID
      * @returns {Array} Jobs for the VM
      */
-    getVMJobs(vmId) {
-      let jobs = [];
-      const unsubscribe = subscribe(state => {
-        jobs = state.jobsByVM[vmId] || [];
-      });
-      unsubscribe();
-      return jobs;
+    getJobsForVM(vmId) {
+      const state = baseStore.getValue();
+      return state.jobsByVM[vmId] || [];
     },
 
     /**
-     * Clear error state
+     * Get job by ID
+     * @param {string} jobId - Job ID
+     * @returns {Object|null} Job object or null
      */
-    clearError() {
-      update(state => ({ ...state, error: null }));
-    },
-
-    /**
-     * Reset store to initial state
-     */
-    reset() {
-      set({
-        jobs: [],
-        jobsByVM: {},
-        currentJob: null,
-        loading: false,
-        error: null,
-      });
+    getJobById(jobId) {
+      const state = baseStore.getValue();
+      return state.jobs.find(job => job.id === jobId) || null;
     }
   };
 }
@@ -161,41 +163,35 @@ export const currentJob = derived(jobStore, $jobStore => $jobStore.currentJob);
 export const jobLoading = derived(jobStore, $jobStore => $jobStore.loading);
 export const jobError = derived(jobStore, $jobStore => $jobStore.error);
 
-// Derived store for current VM's jobs
+// Derived store for execution state
+export const isExecuting = derived(currentJob, $currentJob => !!$currentJob);
+
+// Derived store for current VM jobs
 export const currentVMJobs = derived(
-  [jobStore, selectedVM],
+  [jobStore, selectedVM], 
   ([$jobStore, $selectedVM]) => {
     if (!$selectedVM) return [];
     return $jobStore.jobsByVM[$selectedVM.id] || [];
   }
 );
 
-// Derived store for job statistics
+// Additional derived stores
+export const recentJobs = derived(jobs, $jobs => $jobs.slice(0, 10));
+export const failedJobs = derived(jobs, $jobs => $jobs.filter(job => job.status === 'failed'));
+export const successfulJobs = derived(jobs, $jobs => $jobs.filter(job => job.status === 'completed'));
+
+// Job statistics
 export const jobStats = derived(jobs, $jobs => {
-  const stats = {
-    total: $jobs.length,
-    running: 0,
-    success: 0,
-    failed: 0,
-    recent: $jobs.slice(0, 10)
+  const total = $jobs.length;
+  const completed = $jobs.filter(job => job.status === 'completed').length;
+  const failed = $jobs.filter(job => job.status === 'failed').length;
+  const running = $jobs.filter(job => job.status === 'running').length;
+  
+  return {
+    total,
+    completed,
+    failed,
+    running,
+    successRate: total > 0 ? (completed / total * 100).toFixed(1) : 0
   };
-
-  $jobs.forEach(job => {
-    switch (job.status) {
-      case 'running':
-        stats.running++;
-        break;
-      case 'success':
-        stats.success++;
-        break;
-      case 'failed':
-        stats.failed++;
-        break;
-    }
-  });
-
-  return stats;
 });
-
-// Derived store for execution status
-export const isExecuting = derived(currentJob, $currentJob => !!$currentJob);

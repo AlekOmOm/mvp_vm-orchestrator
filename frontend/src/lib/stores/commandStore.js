@@ -1,30 +1,37 @@
 /**
  * Command Store
  *
- * Svelte store for managing command state and operations.
+ * Enhanced command store using base store pattern for consistent state management.
  * Provides reactive state management for command CRUD operations.
  *
  * @fileoverview Command state management store
  */
 
-import { writable, derived } from 'svelte/store';
+import { derived } from 'svelte/store';
+import { createBaseStore, withLoadingState } from './baseStore.js';
 import { commandService } from '../services/ApiService.js';
 import { selectedVM } from './vmStore.js';
 
 /**
- * Create command store with reactive state management
+ * Create command store with enhanced base store functionality
  */
 function createCommandStore() {
-  // Core state
-  const { subscribe, set, update } = writable({
+  // Initial state
+  const initialState = {
     commands: [],
     commandsByVM: {}, // Cache commands by VM ID
     loading: false,
     error: null,
+  };
+
+  // Create base store with logging enabled
+  const baseStore = createBaseStore(initialState, {
+    name: 'CommandStore',
+    enableLogging: true
   });
 
   return {
-    subscribe,
+    ...baseStore,
 
     /**
      * Load commands for a specific VM
@@ -33,27 +40,20 @@ function createCommandStore() {
     async loadVMCommands(vmId) {
       if (!vmId) return;
       
-      update(state => ({ ...state, loading: true, error: null }));
-      
-      try {
+      return withLoadingState(baseStore, async () => {
         const commands = await commandService.getVMCommands(vmId);
-        update(state => ({ 
+        
+        baseStore.updateWithLoading(state => ({ 
           ...state, 
           commands,
           commandsByVM: {
             ...state.commandsByVM,
             [vmId]: commands
-          },
-          loading: false 
-        }));
-      } catch (error) {
-        console.error('Failed to load VM commands:', error);
-        update(state => ({ 
-          ...state, 
-          loading: false, 
-          error: error.message 
-        }));
-      }
+          }
+        }), false);
+        
+        return commands;
+      }, { operationName: `loadVMCommands(${vmId})`, logOperation: true });
     },
 
     /**
@@ -62,11 +62,10 @@ function createCommandStore() {
      * @param {Object} commandData - Command data
      */
     async createCommand(vmId, commandData) {
-      update(state => ({ ...state, loading: true, error: null }));
-      
-      try {
+      return withLoadingState(baseStore, async () => {
         const newCommand = await commandService.createCommand(vmId, commandData);
-        update(state => {
+        
+        baseStore.updateWithLoading(state => {
           const vmCommands = state.commandsByVM[vmId] || [];
           const updatedCommands = [...vmCommands, newCommand];
           
@@ -76,127 +75,104 @@ function createCommandStore() {
             commandsByVM: {
               ...state.commandsByVM,
               [vmId]: updatedCommands
-            },
-            loading: false
+            }
           };
-        });
+        }, false);
+        
         return newCommand;
-      } catch (error) {
-        console.error('Failed to create command:', error);
-        update(state => ({ 
-          ...state, 
-          loading: false, 
-          error: error.message 
-        }));
-        throw error;
-      }
+      }, { operationName: 'createCommand', logOperation: true });
     },
 
     /**
      * Update an existing command
-     * @param {string} id - Command ID
+     * @param {string} commandId - Command ID
      * @param {Object} updates - Command updates
      */
-    async updateCommand(id, updates) {
-      update(state => ({ ...state, loading: true, error: null }));
-      
-      try {
-        const updatedCommand = await commandService.updateCommand(id, updates);
-        update(state => {
-          const newCommandsByVM = { ...state.commandsByVM };
+    async updateCommand(commandId, updates) {
+      return withLoadingState(baseStore, async () => {
+        const updatedCommand = await commandService.updateCommand(commandId, updates);
+        
+        baseStore.updateWithLoading(state => {
+          // Update in main commands array
+          const updatedCommands = state.commands.map(cmd => 
+            cmd.id === commandId ? updatedCommand : cmd
+          );
           
-          // Update command in all VM caches
-          Object.keys(newCommandsByVM).forEach(vmId => {
-            newCommandsByVM[vmId] = newCommandsByVM[vmId].map(cmd => 
-              cmd.id === id ? updatedCommand : cmd
+          // Update in VM-specific cache
+          const updatedCommandsByVM = { ...state.commandsByVM };
+          Object.keys(updatedCommandsByVM).forEach(vmId => {
+            updatedCommandsByVM[vmId] = updatedCommandsByVM[vmId].map(cmd =>
+              cmd.id === commandId ? updatedCommand : cmd
             );
           });
-
+          
           return {
             ...state,
-            commands: state.commands.map(cmd => cmd.id === id ? updatedCommand : cmd),
-            commandsByVM: newCommandsByVM,
-            loading: false
+            commands: updatedCommands,
+            commandsByVM: updatedCommandsByVM
           };
-        });
+        }, false);
+        
         return updatedCommand;
-      } catch (error) {
-        console.error('Failed to update command:', error);
-        update(state => ({ 
-          ...state, 
-          loading: false, 
-          error: error.message 
-        }));
-        throw error;
-      }
+      }, { operationName: 'updateCommand', logOperation: true });
     },
 
     /**
      * Delete a command
-     * @param {string} id - Command ID
-     * @param {string} vmId - VM ID (for cache management)
+     * @param {string} commandId - Command ID
      */
-    async deleteCommand(id, vmId) {
-      update(state => ({ ...state, loading: true, error: null }));
-      
-      try {
-        await commandService.deleteCommand(id);
-        update(state => {
-          const newCommandsByVM = { ...state.commandsByVM };
+    async deleteCommand(commandId) {
+      return withLoadingState(baseStore, async () => {
+        await commandService.deleteCommand(commandId);
+        
+        baseStore.updateWithLoading(state => {
+          // Remove from main commands array
+          const filteredCommands = state.commands.filter(cmd => cmd.id !== commandId);
           
-          // Remove command from all VM caches
-          Object.keys(newCommandsByVM).forEach(vmIdKey => {
-            newCommandsByVM[vmIdKey] = newCommandsByVM[vmIdKey].filter(cmd => cmd.id !== id);
+          // Remove from VM-specific cache
+          const updatedCommandsByVM = { ...state.commandsByVM };
+          Object.keys(updatedCommandsByVM).forEach(vmId => {
+            updatedCommandsByVM[vmId] = updatedCommandsByVM[vmId].filter(cmd =>
+              cmd.id !== commandId
+            );
           });
-
+          
           return {
             ...state,
-            commands: state.commands.filter(cmd => cmd.id !== id),
-            commandsByVM: newCommandsByVM,
-            loading: false
+            commands: filteredCommands,
+            commandsByVM: updatedCommandsByVM
           };
-        });
-      } catch (error) {
-        console.error('Failed to delete command:', error);
-        update(state => ({ 
-          ...state, 
-          loading: false, 
-          error: error.message 
-        }));
-        throw error;
-      }
+        }, false);
+      }, { operationName: 'deleteCommand', logOperation: true });
     },
 
     /**
-     * Get commands for a specific VM from cache
+     * Get commands for a specific VM
      * @param {string} vmId - VM ID
      * @returns {Array} Commands for the VM
      */
-    getVMCommands(vmId) {
-      let commands = [];
-      const unsubscribe = subscribe(state => {
-        commands = state.commandsByVM[vmId] || [];
-      });
-      unsubscribe();
-      return commands;
+    getCommandsForVM(vmId) {
+      const state = baseStore.getValue();
+      return state.commandsByVM[vmId] || [];
     },
 
     /**
-     * Clear error state
+     * Get command by ID
+     * @param {string} commandId - Command ID
+     * @returns {Object|null} Command object or null
      */
-    clearError() {
-      update(state => ({ ...state, error: null }));
+    getCommandById(commandId) {
+      const state = baseStore.getValue();
+      return state.commands.find(cmd => cmd.id === commandId) || null;
     },
 
     /**
-     * Reset store to initial state
+     * Clear commands cache
      */
-    reset() {
-      set({
+    clearCommands() {
+      baseStore.setState({
         commands: [],
-        commandsByVM: {},
-        loading: false,
-        error: null,
+        commandsByVM: {}
       });
     }
   };
@@ -210,31 +186,27 @@ export const commands = derived(commandStore, $commandStore => $commandStore.com
 export const commandLoading = derived(commandStore, $commandStore => $commandStore.loading);
 export const commandError = derived(commandStore, $commandStore => $commandStore.error);
 
-// Derived store for current VM's commands
+// Derived store for current VM commands
 export const currentVMCommands = derived(
-  [commandStore, selectedVM],
+  [commandStore, selectedVM], 
   ([$commandStore, $selectedVM]) => {
     if (!$selectedVM) return [];
     return $commandStore.commandsByVM[$selectedVM.id] || [];
   }
 );
 
-// Derived store for command groups (organized by type)
-export const commandGroups = derived(currentVMCommands, $commands => {
-  const groups = {
-    stream: { type: 'stream', description: 'Streaming commands', commands: [] },
-    ssh: { type: 'ssh', description: 'SSH commands', commands: [] },
-    terminal: { type: 'terminal', description: 'Terminal commands', commands: [] }
-  };
-
-  $commands.forEach(command => {
-    if (groups[command.type]) {
-      groups[command.type].commands.push(command);
+// Additional derived stores
+export const commandsByType = derived(commands, $commands => {
+  const grouped = {};
+  $commands.forEach(cmd => {
+    const type = cmd.type || 'general';
+    if (!grouped[type]) {
+      grouped[type] = [];
     }
+    grouped[type].push(cmd);
   });
-
-  // Only return groups that have commands
-  return Object.fromEntries(
-    Object.entries(groups).filter(([_, group]) => group.commands.length > 0)
-  );
+  return grouped;
 });
+
+export const hasCommands = derived(commands, $commands => $commands.length > 0);
+export const commandCount = derived(commands, $commands => $commands.length);

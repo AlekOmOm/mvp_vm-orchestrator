@@ -11,10 +11,10 @@
   import { Alert, AlertDescription } from '$lib/components/ui/alert';
   import { Loader2, Settings, AlertCircle } from 'lucide-svelte';
 
-  export let vms = [];
-  export let selectedVM = null;
-  export let loading = false;
-  export let error = null;
+   let vms = [];
+   let selectedVM = null;
+   let loading = false;
+   let error = null;
 
   const dispatch = createEventDispatcher();
 

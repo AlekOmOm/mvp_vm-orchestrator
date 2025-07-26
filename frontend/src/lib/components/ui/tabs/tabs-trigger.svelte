@@ -2,9 +2,7 @@
   import { getContext } from 'svelte';
   import { cn } from "$lib/utils.js";
 
-  let className = undefined;
-  export { className as class };
-  export let value = "";
+  let { className, value = "", ...restProps } = $props();
 
   const activeTab = getContext('tabs');
 

@@ -1,18 +1,8 @@
 <script>
   import { cn } from "$lib/utils.js";
 
-  let className = undefined;
-  export { className as class };
-  export let value = "";
-  export let placeholder = "";
-  export let type = "text";
-  export let disabled = false;
-  export let readonly = false;
-  export let id = undefined;
-  export let name = undefined;
-  export let min = undefined;
-  export let max = undefined;
-  export let step = undefined;
+  let { className, value = "", placeholder = "", type = "text", disabled = false, readonly = false, id = undefined, name = undefined, min = undefined, max = undefined, step = undefined, ...restProps } = $props();
+
 </script>
 
 <input
