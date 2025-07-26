@@ -1,0 +1,526 @@
+  </div>
+</div>
+
+<!-- ============================================================================ -->
+<!-- Job History Component - Using shadcn-svelte Table & Badge -->
+<!-- ============================================================================ -->
+
+<!-- frontend/src/lib/components/JobHistory.svelte -->
+<script>
+  import { createEventDispatcher } from 'svelte';
+  import { Button } from '$lib/components/ui/button';
+  import { Badge } from '$lib/components/ui/badge';
+  import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '$lib/components/ui/table';
+  import { RefreshCw, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-svelte';
+
+  export let jobs = [];
+
+  const dispatch = createEventDispatcher();
+
+  function refreshHistory() {
+    dispatch('refresh');
+  }
+
+  function formatDuration(started, finished) {
+    if (!finished) return 'Running...';
+    const duration = new Date(finished) - new Date(started);
+    return `${(duration / 1000).toFixed(1)}s`;
+  }
+
+  function formatTime(timestamp) {
+    return new Date(timestamp).toLocaleTimeString();
+  }
+
+  function getStatusIcon(status) {
+    switch (status) {
+      case 'running': return Clock;
+      case 'success': return CheckCircle2;
+      case 'failed': return XCircle;
+      default: return AlertCircle;
+    }
+  }
+
+  function getStatusVariant(status) {
+    switch (status) {
+      case 'running': return 'secondary';
+      case 'success': return 'default';
+      case 'failed': return 'destructive';
+      default: return 'outline';
+    }
+  }
+
+  $: hasJobs = jobs.length > 0;
+</script>
+
+<div class="h-full flex flex-col">
+  <!-- Header -->
+  <div class="p-4 border-b">
+    <div class="flex items-center justify-between">
+      <Button
+        variant="ghost"
+        size="sm"
+        on:click={refreshHistory}
+        class="gap-2"
+      >
+        <RefreshCw class="w-4 h-4" />
+        Refresh
+      </Button>
+    </div>
+  </div>
+
+  <!-- Job Table -->
+  <div class="flex-1 overflow-hidden">
+    {#if !hasJobs}
+      <div class="flex items-center justify-center h-full text-muted-foreground">
+        <div class="text-center">
+          <Clock class="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <p>No job history yet</p>
+          <p class="text-xs">Execute commands to see history</p>
+        </div>
+      </div>
+    {:else}
+      <div class="h-full overflow-y-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Command</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Duration</TableHead>
+              <TableHead>Started</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {#each jobs as job}
+              <TableRow>
+                <TableCell class="font-mono text-sm">
+                  <div class="flex flex-col">
+                    <span class="font-semibold">{job.command_group}.{job.command_name}</span>
+                    <span class="text-xs text-muted-foreground truncate max-w-xs">
+                      {JSON.parse(job.command_details).cmd} {JSON.parse(job.command_details).args?.join(' ') || ''}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={getStatusVariant(job.status)} class="gap-1">
+                    <svelte:component this={getStatusIcon(job.status)} class="w-3 h-3" />
+                    {job.status}
+                    {#if job.exit_code !== null}
+                      <span class="text-xs">({job.exit_code})</span>
+                    {/if}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" class="text-xs">
+                    {job.type}
+                  </Badge>
+                </TableCell>
+                <TableCell class="text-sm text-muted-foreground">
+                  {formatDuration(job.started_at, job.finished_at)}
+                </TableCell>
+                <TableCell class="text-sm text-muted-foreground">
+                  {formatTime(job.started_at)}
+                </TableCell>
+              </TableRow>
+            {/each}
+          </TableBody>
+        </Table>
+      </div>
+    {/if}
+  </div>
+</div><!-- ============================================================================ -->
+<!-- Main App Component - Using shadcn-svelte components -->
+<!-- ============================================================================ -->
+
+<!-- frontend/src/App.svelte -->
+<script>
+  import { onMount } from 'svelte';
+  import { WebSocketService } from './lib/services/WebSocketService.js';
+  import CommandPanel from './lib/components/CommandPanel.svelte';
+  import LogViewer from './lib/components/LogViewer.svelte';
+  import JobHistory from './lib/components/JobHistory.svelte';
+  import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
+  
+  // shadcn-svelte components
+  import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
+  import { Separator } from '$lib/components/ui/separator';
+
+  let wsService;
+  let connectionStatus;
+  let commands;
+  let currentJob;
+  let logLines;
+  let jobs;
+
+  onMount(() => {
+    wsService = new WebSocketService();
+    
+    connectionStatus = wsService.getConnectionStatus();
+    commands = wsService.getCommands();
+    currentJob = wsService.getCurrentJob();
+    logLines = wsService.getLogLines();
+    jobs = wsService.getJobs();
+  });
+
+  function handleExecuteCommand(event) {
+    const { commandGroup, commandName } = event.detail;
+    wsService.executeCommand(commandGroup, commandName);
+  }
+
+  function handleRefreshHistory() {
+    wsService.loadJobHistory();
+  }
+</script>
+
+<main class="min-h-screen bg-background">
+  <!-- Header -->
+  <header class="border-b bg-card">
+    <div class="container mx-auto px-4 py-4 flex items-center justify-between">
+      <h1 class="text-2xl font-bold text-foreground">🚀 VM Orchestrator POC</h1>
+      {#if wsService}
+        <ConnectionStatus status={$connectionStatus} />
+      {/if}
+    </div>
+  </header>
+
+  <!-- Main Content Grid -->
+  <div class="container mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-80px)]">
+    
+    <!-- Command Panel -->
+    <Card class="lg:row-span-2">
+      <CardHeader>
+        <CardTitle>Available Commands</CardTitle>
+      </CardHeader>
+      <CardContent class="p-0">
+        {#if wsService}
+          <CommandPanel 
+            commands={$commands} 
+            currentJob={$currentJob}
+            on:execute={handleExecuteCommand} 
+          />
+        {/if}
+      </CardContent>
+    </Card>
+
+    <!-- Live Output -->
+    <Card class="lg:col-span-2">
+      <CardHeader>
+        <CardTitle>Live Output</CardTitle>
+        <Separator />
+      </CardHeader>
+      <CardContent class="p-0">
+        {#if wsService}
+          <LogViewer 
+            currentJob={$currentJob} 
+            logLines={$logLines} 
+          />
+        {/if}
+      </CardContent>
+    </Card>
+
+    <!-- Job History -->
+    <Card class="lg:col-span-2">
+      <CardHeader>
+        <CardTitle>Job History</CardTitle>
+        <Separator />
+      </CardHeader>
+      <CardContent class="p-0">
+        {#if wsService}
+          <JobHistory 
+            jobs={$jobs} 
+            on:refresh={handleRefreshHistory}
+          />
+        {/if}
+      </CardContent>
+    </Card>
+
+  </div>
+</main>
+
+<!-- ============================================================================ -->
+<!-- Connection Status Component - Using shadcn-svelte Badge -->
+<!-- ============================================================================ -->
+
+<!-- frontend/src/lib/components/ConnectionStatus.svelte -->
+<script>
+  import { Badge } from '$lib/components/ui/badge';
+  
+  export let status;
+
+  $: variant = {
+    'connecting': 'secondary',
+    'connected': 'default',
+    'disconnected': 'destructive'
+  }[status] || 'outline';
+
+  $: statusText = {
+    'connecting': 'Connecting...',
+    'connected': 'Connected',
+    'disconnected': 'Disconnected'
+  }[status] || 'Unknown';
+
+  $: statusIcon = {
+    'connecting': '🔄',
+    'connected': '✅',
+    'disconnected': '❌'
+  }[status] || '❓';
+</script>
+
+<Badge {variant} class="flex items-center gap-2">
+  <span class="text-sm">{statusIcon}</span>
+  <span>{statusText}</span>
+</Badge>
+
+<!-- ============================================================================ -->
+<!-- Command Panel Component - Using shadcn-svelte Button & Card -->
+<!-- ============================================================================ -->
+
+<!-- frontend/src/lib/components/CommandPanel.svelte -->
+<script>
+  import { createEventDispatcher } from 'svelte';
+  import { Button } from '$lib/components/ui/button';
+  import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
+  import { Badge } from '$lib/components/ui/badge';
+  import { Separator } from '$lib/components/ui/separator';
+  import { Loader2, Play, Terminal } from 'lucide-svelte';
+
+  export let commands = {};
+  export let currentJob = null;
+
+  const dispatch = createEventDispatcher();
+
+  function executeCommand(commandGroup, commandName) {
+    if (currentJob) return;
+    dispatch('execute', { commandGroup, commandName });
+  }
+
+  $: isExecuting = !!currentJob;
+  $: commandGroups = Object.keys(commands);
+</script>
+
+<div class="h-full overflow-y-auto p-4 space-y-4">
+  {#if commandGroups.length === 0}
+    <div class="flex items-center justify-center h-32 text-muted-foreground">
+      <Loader2 class="w-4 h-4 mr-2 animate-spin" />
+      Loading commands...
+    </div>
+  {:else}
+    {#each commandGroups as groupName}
+      {@const group = commands[groupName]}
+      <Card>
+        <CardHeader class="pb-3">
+          <div class="flex items-center justify-between">
+            <CardTitle class="text-lg">{groupName}</CardTitle>
+            <Badge variant="outline" class="text-xs">
+              {#if group.type === 'local'}
+                <Terminal class="w-3 h-3 mr-1" />
+              {:else}
+                <span class="mr-1">🔗</span>
+              {/if}
+              {group.type}
+            </Badge>
+          </div>
+          <CardDescription>{group.description}</CardDescription>
+        </CardHeader>
+        
+        <CardContent class="pt-0">
+          <div class="space-y-2">
+            {#each group.commands as command}
+              <Button
+                variant="outline"
+                size="sm"
+                class="w-full justify-start h-auto p-3"
+                disabled={isExecuting}
+                on:click={() => executeCommand(groupName, command.name)}
+              >
+                <div class="flex items-center justify-between w-full">
+                  <div class="flex items-center gap-2">
+                    {#if isExecuting && currentJob?.command?.includes(command.name)}
+                      <Loader2 class="w-4 h-4 animate-spin" />
+                    {:else}
+                      <Play class="w-4 h-4" />
+                    {/if}
+                    <span class="font-medium">{command.name}</span>
+                  </div>
+                  <span class="text-xs text-muted-foreground">{command.description}</span>
+                </div>
+              </Button>
+            {/each}
+          </div>
+        </CardContent>
+      </Card>
+    {/each}
+  {/if}
+
+  {#if isExecuting}
+    <Card class="border-orange-200 bg-orange-50">
+      <CardContent class="pt-4">
+        <div class="flex items-center gap-2 text-orange-700">
+          <Loader2 class="w-4 h-4 animate-spin" />
+          <span class="font-medium">Executing:</span>
+          <code class="text-sm">{currentJob.command}</code>
+        </div>
+      </CardContent>
+    </Card>
+  {/if}
+</div>
+
+<!-- ============================================================================ -->
+<!-- Log Viewer Component - Using shadcn-svelte ScrollArea & Button -->
+<!-- ============================================================================ -->
+
+<!-- frontend/src/lib/components/LogViewer.svelte -->
+<script>
+  import { afterUpdate } from 'svelte';
+  import { Button } from '$lib/components/ui/button';
+  import { ScrollArea } from '$lib/components/ui/scroll-area';
+  import { Badge } from '$lib/components/ui/badge';
+  import { Separator } from '$lib/components/ui/separator';
+  import { ArrowDown, RotateCcw, Trash2, Terminal } from 'lucide-svelte';
+
+  export let currentJob = null;
+  export let logLines = [];
+
+  let logContainer;
+  let autoScroll = true;
+
+  afterUpdate(() => {
+    if (autoScroll && logContainer) {
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+  });
+
+  function handleScroll() {
+    if (!logContainer) return;
+    const { scrollTop, scrollHeight, clientHeight } = logContainer;
+    autoScroll = scrollTop + clientHeight >= scrollHeight - 50;
+  }
+
+  function clearLogs() {
+    // Reset logs in POC
+  }
+
+  function toggleAutoScroll() {
+    autoScroll = !autoScroll;
+    if (autoScroll && logContainer) {
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+  }
+
+  function scrollToBottom() {
+    if (logContainer) {
+      logContainer.scrollTop = logContainer.scrollHeight;
+      autoScroll = true;
+    }
+  }
+
+  $: hasLogs = logLines.length > 0;
+  $: isRunning = !!currentJob;
+</script>
+
+<div class="h-full flex flex-col">
+  <!-- Log Header -->
+  <div class="p-4 border-b">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        {#if currentJob}
+          <Badge variant="default" class="animate-pulse">
+            <Terminal class="w-3 h-3 mr-1" />
+            Running
+          </Badge>
+          <code class="text-sm bg-muted px-2 py-1 rounded">{currentJob.command}</code>
+          <Badge variant="outline" class="text-xs">{currentJob.type}</Badge>
+        {:else}
+          <span class="text-muted-foreground">No active job</span>
+        {/if}
+      </div>
+
+      <div class="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          class={autoScroll ? "bg-primary/10" : ""}
+          on:click={toggleAutoScroll}
+          title="Toggle auto-scroll"
+        >
+          <ArrowDown class="w-4 h-4" />
+        </Button>
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          on:click={scrollToBottom}
+          disabled={!hasLogs}
+          title="Scroll to bottom"
+        >
+          <RotateCcw class="w-4 h-4" />
+        </Button>
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          on:click={clearLogs}
+          disabled={!hasLogs}
+          title="Clear logs"
+        >
+          <Trash2 class="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log Content -->
+  <div class="flex-1 relative">
+    <ScrollArea class="h-full">
+      <div 
+        bind:this={logContainer}
+        on:scroll={handleScroll}
+        class="h-full overflow-y-auto"
+      >
+        {#if logLines.length === 0}
+          <div class="flex items-center justify-center h-full text-muted-foreground">
+            {#if isRunning}
+              <div class="text-center">
+                <Terminal class="w-8 h-8 mx-auto mb-2 animate-pulse" />
+                <p>Waiting for output...</p>
+              </div>
+            {:else}
+              <div class="text-center">
+                <Terminal class="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>Execute a command to see output</p>
+              </div>
+            {/if}
+          </div>
+        {:else}
+          <div class="p-4 font-mono text-sm space-y-1">
+            {#each logLines as line, i}
+              <div 
+                class="flex items-start gap-3 py-1"
+                class:text-red-600={line.stream === 'stderr'}
+                class:text-blue-600={line.stream === 'system'}
+                class:text-orange-600={line.stream === 'error'}
+              >
+                <Badge 
+                  variant="outline" 
+                  class="text-xs px-1 py-0 h-auto min-w-[60px] justify-center"
+                  class:border-red-200={line.stream === 'stderr'}
+                  class:border-blue-200={line.stream === 'system'}
+                  class:border-orange-200={line.stream === 'error'}
+                >
+                  {line.stream}
+                </Badge>
+                <code class="flex-1 whitespace-pre-wrap break-all">
+                  {line.data}
+                </code>
+                <span class="text-xs text-muted-foreground whitespace-nowrap">
+                  {new Date(line.timestamp).toLocaleTimeString()}
+                </span>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </ScrollArea>
+  </div>
+</div>
+  
