@@ -7,8 +7,9 @@
  * @fileoverview Job-specific WebSocket service with stores and execution logic
  */
 
-import { writable } from "svelte/store";
+import { writable, derived } from "svelte/store";
 import { jobStore } from "../../stores/jobStore.js";
+import { logStore } from "../../stores/logStore.js";
 
 /**
  * Job WebSocket Service class
@@ -40,40 +41,37 @@ export class JobWebSocketService {
       // Job lifecycle events
       this.wsClient.on("job:started", (data) => {
          console.log("🚀 Job started:", data);
-         this.currentJob.set(data);
+
+         const current = {
+            ...data,
+            id: data.jobId,
+            startedAt: data.timestamp || data.started_at || new Date().toISOString(),
+         };
+
+         this.currentJob.set(current);
          this.logLines.set([]);
 
-         this.triggerEventHandlers("job:started", data);
+         this.triggerEventHandlers("job:started", current);
 
          // Update global job store
          try {
             const normalized = {
-               ...data,
+               ...current,
                vmId: data.hostAlias || data.vmId,
             };
             jobStore.setCurrentJob(normalized);
-            jobStore.addJob({ ...normalized, status: "running", started_at: data.timestamp || data.started_at || new Date().toISOString() });
-         } catch (_) {
-            // jobStore might not be initialized in some contexts
-         }
+            jobStore.addJob({ ...normalized, status: "running", started_at: normalized.startedAt });
+         } catch (_) {}
       });
 
       this.wsClient.on("job:log", (data) => {
-         console.log("📝 Job log:", {
-            jobId: data.jobId,
+         // Single source of truth: only logStore
+         logStore.addLogLine(data.jobId, {
             stream: data.stream,
-            length: data.chunk?.length,
+            data: data.chunk,
+            timestamp: data.timestamp || new Date().toISOString(),
          });
-
-         this.logLines.update((lines) => [
-            ...lines,
-            {
-               stream: data.stream,
-               data: data.chunk,
-               timestamp: data.timestamp || new Date().toISOString(),
-            },
-         ]);
-
+         
          this.triggerEventHandlers("job:log", data);
       });
 
@@ -93,6 +91,16 @@ export class JobWebSocketService {
             );
             return updatedJobs;
          });
+
+         // add log lines to logStore
+         if (Array.isArray(data.logLines) && data.logLines.length > 0) {
+            const last = data.logLines[data.logLines.length - 1];
+            logStore.addLogLine(data.jobId, {
+               stream: last.stream || 'stdout',
+               data: last.data || last,
+               timestamp: last.timestamp || new Date().toISOString(),
+            });
+         }
 
          this.currentJob.set(null);
          this.triggerEventHandlers("job:done", data);
@@ -304,8 +312,17 @@ export class JobWebSocketService {
       return this.logLines;
    }
 
-   subscribeLogs(callback) {
-      return this.logLines.subscribe(callback);
+   getLogLinesForJob(jobId) {
+      return derived(this.logLines, (lines) => lines.filter((l) => l.jobId === jobId));
+   }
+
+   subscribeLogs(jobIdOrCallback, maybeCallback) {
+      if (typeof jobIdOrCallback === 'function') {
+         return this.logLines.subscribe(jobIdOrCallback);
+      }
+      const jobId = jobIdOrCallback;
+      const callback = maybeCallback;
+      return this.getLogLinesForJob(jobId).subscribe(callback);
    }
 
    getJobs() {

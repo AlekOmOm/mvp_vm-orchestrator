@@ -12,6 +12,14 @@ import { derived } from "svelte/store";
 import { createBaseStore, withLoadingState } from "./baseStore.js";
 import { serviceContainer } from "../core/ServiceContainer.js";
 import { selectedVM } from "./vmStore.js";
+import { logStore } from "./logStore.js";
+
+async function fetchAndStoreLogs(apiClient, jobId) {
+  try {
+    const data = await apiClient.get(`/api/jobs/${jobId}/logs`);
+    logStore.addLogLines(jobId, data);
+  } catch (_) {}
+}
 
 /**
  * Create job store with enhanced base store functionality
@@ -114,50 +122,45 @@ function createJobStore() {
        * @param {string} vmId - VM ID
        * @param {Object} options - Query options
        */
-      async loadVMJobs(vmId, options = {}) {
-         if (!vmId) return;
+      async loadVMJobs(vmId, options = {}, withLogLines = false) {
+         return withLoadingState(baseStore, async () => {
+            const apiClient = serviceContainer.get("apiClient");
+            const params = new URLSearchParams();
+            if (options.limit) params.append("limit", options.limit);
+            if (options.status) params.append("status", options.status);
 
-         return withLoadingState(
-            baseStore,
-            async () => {
-               const apiClient = serviceContainer.get("apiClient");
-               const params = new URLSearchParams();
-               if (options.limit) params.append("limit", options.limit);
-               if (options.status) params.append("status", options.status);
+            const query = params.toString() ? `?${params.toString()}` : "";
+            const fetched = await apiClient.get(`/api/vms/${vmId}/jobs${query}`);
 
-               const query = params.toString() ? `?${params.toString()}` : "";
-               const fetched = await apiClient.get(`/api/vms/${vmId}/jobs${query}`);
+            // Include optimistic jobs from global jobs array
+            const globalJobs = baseStore.getValue().jobs.filter(j => j.vmId === vmId);
+            const existing = baseStore.getValue().jobsByVM[vmId] || [];
+            
+            const mergedMap = new Map();
+            [...fetched, ...globalJobs, ...existing].forEach((j) => {
+               mergedMap.set(j.id, { ...mergedMap.get(j.id), ...j });
+            });
+            
+            const jobs = Array.from(mergedMap.values())
+               .sort((a, b) => new Date(b.started_at || b.createdAt || 0) - new Date(a.started_at || a.createdAt || 0));
 
-               const existing = baseStore.getValue().jobsByVM[vmId] || [];
-               const mergedMap = new Map();
-               [...fetched, ...existing].forEach((j) => {
-                  mergedMap.set(j.id, { ...mergedMap.get(j.id), ...j });
-               });
-               const jobs = Array.from(mergedMap.values()).sort((a, b) => new Date(b.started_at || b.createdAt || 0) - new Date(a.started_at || a.createdAt || 0));
+            baseStore.updateWithLoading((state) => ({
+               ...state,
+               jobsByVM: { ...state.jobsByVM, [vmId]: jobs },
+            }), false);
 
-               baseStore.updateWithLoading(
-                  (state) => ({
-                     ...state,
-                     jobsByVM: {
-                        ...state.jobsByVM,
-                        [vmId]: jobs,
-                     },
-                  }),
-                  false
-               );
-
-               return jobs;
-            },
-            { operationName: `loadVMJobs(${vmId})`, logOperation: true }
-         );
+            if (withLogLines) {
+               for (const j of jobs) {
+                  await fetchAndStoreLogs(apiClient, j.id);
+               }
+            }
+            return jobs;
+         });
       },
-
-      /**
-       * Set current executing job
-       * @param {Object|null} job - Current job or null
-       */
+      
       setCurrentJob(job) {
          baseStore.setState({ currentJob: job });
+         logStore.setCurrentJob(job);
       },
 
       /**
@@ -198,6 +201,7 @@ function createJobStore() {
             },
             false
          );
+         logStore.setCurrentJob(job);
       },
 
       /**
@@ -219,6 +223,7 @@ function createJobStore() {
             }),
             false
          );
+         logStore.setCurrentJob(null);
       },
 
       /**

@@ -47,6 +47,10 @@
     }
   });
 
+  function sanitizeCommand(cmd) {
+    return cmd.split(/\r?\n/).map(line => line.trim()).filter(Boolean).join(' ').trim();
+  }
+
   /**
    * Handle template selection
    */
@@ -57,6 +61,12 @@
     formData.description = template.description;
     formData.timeout = template.timeout || 30000;
   }
+
+  // Derived validation state
+  let isFormValid = $derived(
+    formData.name.trim().length > 0 && 
+    formData.cmd.trim().length > 0
+  );
 
   /**
    * Reset form
@@ -82,7 +92,7 @@
       return;
     }
 
-    if (!formData.name.trim() || !formData.cmd.trim()) {
+    if (!isFormValid) {
       errorMessage = 'Name and command are required';
       return;
     }
@@ -91,20 +101,31 @@
     errorMessage = '';
 
     try {
-      await commandStore.createCommand($selectedVM.id, {
+      const commandData = {
         name: formData.name.trim(),
-        cmd: formData.cmd.trim(),
+        cmd: sanitizeCommand(formData.cmd),
         type: formData.type,
         description: formData.description.trim(),
         timeout: formData.timeout
-      });
+      };
+
+      console.log('Creating command:', commandData);
+      console.log('Selected VM:', $selectedVM);
+
+      await commandStore.createCommand($selectedVM.id, commandData);
 
       oncommandcreated();
       resetForm();
       onclose();
     } catch (error) {
       console.error('Failed to create command:', error);
-      errorMessage = error.message || 'Failed to create command';
+      
+      // Handle specific error cases
+      if (error.message.includes('409') || error.message.includes('Conflict')) {
+        errorMessage = 'A command with this name already exists. Please choose a different name.';
+      } else {
+        errorMessage = error.message || 'Failed to create command';
+      }
     } finally {
       isSubmitting = false;
     }
@@ -157,6 +178,9 @@
             <Input
               id="command-name"
               bind:value={formData.name}
+              oninput={(e) => {
+                formData.name = e.target.value;
+              }}
               placeholder="e.g., docker-status"
               required
             />
@@ -168,6 +192,9 @@
             <Textarea
               id="command-cmd"
               bind:value={formData.cmd}
+              oninput={(e) => {
+                formData.cmd = e.target.value;
+              }}
               placeholder="e.g., docker ps"
               rows="3"
               required
@@ -194,6 +221,9 @@
             <Textarea
               id="command-description"
               bind:value={formData.description}
+              oninput={(e) => {
+                formData.description = e.target.value;
+              }}
               placeholder="Brief description of what this command does"
               rows="2"
             />
@@ -206,6 +236,9 @@
               id="command-timeout"
               type="number"
               bind:value={formData.timeout}
+              oninput={(e) => {
+                formData.timeout = e.target.value;
+              }}
               min="1000"
               max="300000"
               step="1000"
@@ -223,7 +256,7 @@
           <div class="flex gap-3 pt-4">
             <Button
               type="submit"
-              disabled={isSubmitting || !formData.name.trim() || !formData.cmd.trim()}
+              disabled={isSubmitting || !isFormValid}
               class="flex-1"
             >
               {#if isSubmitting}

@@ -24,10 +24,9 @@ export class SshStreamStrategy {
          sshArgs.push("-i", keyFile);
       }
 
-      // Disable strict host key checking if requested
+      // Disable strict host key checking but keep default known_hosts file so the warning appears only once
       if (!strictHostKeyChecking) {
          sshArgs.push("-o", "StrictHostKeyChecking=no");
-         sshArgs.push("-o", "UserKnownHostsFile=/dev/null");
       }
 
       // Add connection timeout
@@ -50,8 +49,6 @@ export class SshStreamStrategy {
       const sshArgs = [
          "-o",
          "StrictHostKeyChecking=no",
-         "-o",
-         "UserKnownHostsFile=/dev/null",
          "-o",
          "ConnectTimeout=10",
          configHost,

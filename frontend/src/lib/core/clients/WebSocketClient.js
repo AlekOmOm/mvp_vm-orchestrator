@@ -77,6 +77,13 @@ export class WebSocketClient {
          // Create socket connection
          this.socket = io(`${serverUrl}${this.namespace}`, this.config);
 
+         // Re-bind previously registered custom handlers
+         if (this.eventHandlers) {
+            for (const [event, handlers] of this.eventHandlers.entries()) {
+               handlers.forEach((h) => this.socket.on(event, h));
+            }
+         }
+
          this.setupCoreEventHandlers();
          console.log(
             `🔌 WebSocket connecting to ${serverUrl}${this.namespace}`

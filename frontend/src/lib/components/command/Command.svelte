@@ -20,8 +20,8 @@ let createdDate = new Date(command.createdAt).toLocaleDateString();
 let displayCmd = command.cmd.length > 50 ? command.cmd.substring(0, 50) + '...' : command.cmd;
 </script>
 
-<Card class="w-full max-w-[400px] transition-all duration-200 {isCurrentCommand ? 'ring-2 ring-orange-500 border-orange-500' : 'hover:shadow-md'}">
-  <CardHeader class="pb-3 w-full">
+<Card class="w-full max-w-[320px] transition-all duration-200 {isCurrentCommand ? 'ring-2 ring-orange-500 border-orange-500' : 'hover:shadow-md'}">
+  <CardHeader class="pb-2 w-full">
     <div class="flex items-start justify-between w-full max-w-full overflow-hidden">
       <div class="flex items-center gap-3">
         <div class="p-2 bg-primary/10 rounded-lg">
@@ -45,7 +45,7 @@ let displayCmd = command.cmd.length > 50 ? command.cmd.substring(0, 50) + '...' 
     </div>
   </CardHeader>
 
-  <CardContent class="space-y-3">
+  <CardContent class="space-y-2">
     {#if command.description}
       <p class="text-sm text-muted-foreground">{command.description}</p>
     {/if}

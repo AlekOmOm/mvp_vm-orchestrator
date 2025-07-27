@@ -9,6 +9,7 @@
 
 import express from 'express';
 import { SSHManager } from '../lib/ssh-manager.js';
+import { syncSshHostsToVms } from '../lib/vm-auto-register.js';
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ const router = express.Router();
  */
 router.get('/', async (req, res) => {
   try {
+    await syncSshHostsToVms();
     const hosts = SSHManager.getAllHosts();
     
     // Transform for frontend consumption

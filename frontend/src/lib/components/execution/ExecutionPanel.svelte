@@ -3,11 +3,13 @@
   import ExecutionHeader from './header/ExecutionHeader.svelte';
   import ExecutionAlert from './alerts/ExecutionAlert.svelte';
   import CommandExecutionView from './commands/CommandExecutionView.svelte';
-  import LogViewer from '../LogViewer.svelte';
+  import Terminal from '../Terminal.svelte';
   import JobHistory from '../job/JobHistory.svelte';
+  import JobLogModal from '../job/JobLogModal.svelte';
   import { selectedVM } from '../../stores/vmStore.js';
   import { getService } from '../../core/ServiceContainer.js';
   import { Clock } from 'lucide-svelte';
+    import { jobStore } from '$lib/stores/jobStore';
 
   let { ontabchanged, oncommandexecute } = $props();
 
@@ -15,6 +17,8 @@
 
   let activeTab = $state('execute');
   let currentAlert = $state(null);
+  let showLogModal = $state(false);
+  let selectedJob = $state(null);
 
   const currentJobStore = jobService.getCurrentJob();
   let currentJob = $derived($currentJobStore);
@@ -39,6 +43,16 @@
   function handleJobRetry(jobData) {
     oncommandexecute?.(jobData);
   }
+
+  function handleJobViewLogs(jobData) {
+    console.log("handleJobViewLogs", jobData);
+    selectedJob = jobStore.getJobWithLogLines(jobData.id);
+    showLogModal = true;
+  }
+
+  function handleLogModalClose() {
+    showLogModal = false;
+  }
 </script>
 
 <Panel variant="main" class="h-full flex flex-col bg-card">
@@ -48,13 +62,16 @@
   <div class="flex-1 overflow-hidden">
     {#if activeTab === 'execute'}
       <div class="h-full flex flex-col">
-        <CommandExecutionView oncommandexecute={handleCommandExecute} onalert={handleAlert} />
-        <div class="flex-1 overflow-hidden">
-          <LogViewer />
+        <div class="flex-1 overflow-y-auto">
+          <CommandExecutionView oncommandexecute={handleCommandExecute} onalert={handleAlert} />
+        </div>
+
+        <div class="flex-none">
+          <Terminal class="min-h-[120px]" />
         </div>
       </div>
     {:else}
-      <JobHistory selectedVM={$selectedVM} onretryjob={handleJobRetry} />
+      <JobHistory selectedVM={$selectedVM} onviewlogs={handleJobViewLogs} onretry={handleJobRetry} />
     {/if}
   </div>
 
@@ -70,3 +87,5 @@
     </div>
   {/if}
 </Panel>
+
+<JobLogModal job={selectedJob} isOpen={showLogModal} onClose={handleLogModalClose} />

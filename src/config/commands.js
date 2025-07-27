@@ -38,21 +38,24 @@ export const EXECUTION_STRATEGIES = {
  */
 export const DEFAULT_COMMANDS = {
    "vm-status": {
-      type: COMMAND_TYPES.STREAM,
+      type: COMMAND_TYPES.SSH,
       cmd: 'echo "VM Status: Running" && ps aux | head -5',
+      hostAlias: "<host-alias>",
       description: "Check local VM status and processes",
    },
    "vm-logs": {
-      type: COMMAND_TYPES.STREAM,
+      type: COMMAND_TYPES.SSH,
       cmd: 'echo "Recent system logs:" && tail -10 /var/log/system.log 2>/dev/null || echo "No system logs available"',
+      hostAlias: "<host-alias>",
       description: "Show recent system logs",
    },
    "docker-ps": {
-      type: COMMAND_TYPES.STREAM,
-      cmd: 'docker ps || echo "Docker not available"',
+      type: COMMAND_TYPES.SSH,
+      cmd: 'docker ps',
+      hostAlias: "<host-alias>",
       description: "List running Docker containers",
    },
-   "docker-status": {
+   "docker-ps-grep": {
       type: COMMAND_TYPES.SSH,
       cmd: "docker ps | grep <container-name>",
       hostAlias: "<host-alias>",

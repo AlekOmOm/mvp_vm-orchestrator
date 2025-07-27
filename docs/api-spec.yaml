@@ -436,6 +436,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/jobs/{jobId}/logs:
+    get:
+      summary: Get job logs
+      description: Retrieve log lines for a specific job
+      operationId: getJobLogs
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Maximum number of log lines to return (default 10000)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+            default: 10000
+      responses:
+        '200':
+          description: List of log lines
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LogLine'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   schemas:
     VM:
@@ -729,3 +771,22 @@ components:
         details:
           type: object
           description: Additional error details
+
+    LogLine:
+      type: object
+      required:
+        - stream
+        - data
+        - timestamp
+      properties:
+        stream:
+          type: string
+          enum: [stdout, stderr]
+          description: Stream name
+        data:
+          type: string
+          description: Log data chunk
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of the log line
