@@ -15,7 +15,8 @@ import { SshHostService } from "../modules/ssh/services/SshHostService.js";
 import { VmsService } from "../modules/vms/services/VmsService.js";
 import { CommandService } from "../modules/commands/CommandService.js";
 import { JobService } from "../modules/jobs/services/JobService.js";
-import { CommandExecutionService } from "../modules/commands/services/CommandExecutionService.js";
+import { CommandExecutor } from "./services/CommandExecutor.js";
+// import { LogService } from "../modules/logs/logService.js";
 import { writable } from "svelte/store";
 
 /**
@@ -77,9 +78,18 @@ export class ServiceContainer {
             )
       );
       this.registerSingleton(
-         "commandExecutionService",
-         (c) => new CommandExecutionService(c.get("jobService"), c.get("vmService"))
+         "commandExecutor",
+         (c) => new CommandExecutor(c.get("jobService"), c.get("vmService"))
       );
+      // Backward compatibility alias
+      this.registerSingleton("commandExecutionService", (c) =>
+         c.get("commandExecutor")
+      );
+      // TODO: Fix circular dependency issue with LogService
+      // this.registerSingleton(
+      //    "logService",
+      //    (c) => new LogService(c.get("apiClient"))
+      // );
    }
 
    /**

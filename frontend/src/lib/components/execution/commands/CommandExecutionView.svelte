@@ -10,7 +10,7 @@
 
   let { oncommandexecute, onalert } = $props();
 
-  const commandExecutionService = getService('commandExecutionService');
+  const commandExecutor = getService('commandExecutor');
   const jobService = getService('jobService');
 
   $effect(() => {
@@ -21,7 +21,7 @@
   });
 
   let commands = $derived($currentVMCommands || []);
-  const isExecutingStore = commandExecutionService.getIsExecuting();
+  const isExecutingStore = commandExecutor.getIsExecuting();
   let isExecuting = $derived($isExecutingStore);
 
   const connectionStatusStore = jobService.getConnectionStatus();
@@ -41,7 +41,7 @@
       return;
     }
     try {
-      await commandExecutionService.executeCommand($selectedVM, cmd);
+      await commandExecutor.executeCommand($selectedVM, cmd);
       oncommandexecute?.(cmd);
     } catch (e) {
       onalert?.({ type: 'error', message: e.message, domain: 'command-execution' });

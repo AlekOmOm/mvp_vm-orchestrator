@@ -9,20 +9,38 @@
  */
 
 import { createBaseStore } from "./baseStore.js";
+import { getService } from '../core/ServiceContainer.js';
 
 function createLogStore() {
-   const base = createBaseStore({ linesByJob: {} }, { name: "LogStore" });
+   const base = createBaseStore({ linesByJob: {} }, { name: "LogStore", enableLogging: true });
 
    function addLogLine(jobId, line) {
-      base.updateWithLoading((state) => {
+      if (!jobId || !line) return;
+      base.update(state => {
+         const lines = state.linesByJob[jobId] || [];
+         const updatedLines = [...lines, { ...line, jobId }];
+         
          return {
             ...state,
             linesByJob: {
                ...state.linesByJob,
-               [jobId]: [{ ...line, jobId }], // Only keep latest line
+               [jobId]: updatedLines,
             },
          };
       });
+   }
+
+   async function fetchAndSetLogs(jobId) {
+       const logService = getService('logService');
+       const logs = await logService.fetchLogsForJob(jobId);
+       
+       base.update(state => ({
+           ...state,
+           linesByJob: {
+               ...state.linesByJob,
+               [jobId]: logs,
+           }
+       }));
    }
 
    function getLogLinesForJob(jobId) {
@@ -41,6 +59,7 @@ function createLogStore() {
       addLogLine,
       getLogLinesForJob,
       getLogLineCount,
+      fetchAndSetLogs,
    };
 }
 

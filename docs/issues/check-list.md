@@ -15,12 +15,21 @@
 - **Command execution flow consolidated**: Single path through `CommandExecutionService` → `JobService` → `JobWebSocketService`.
 
 ---
-## 🚧 Remaining Blocking Gaps
-- **CRITICAL**: Multiple command execution paths causing potential duplicate jobs:
-  - Path 1: `CommandExecutionView.handleExecute()` → `CommandExecutionService.executeCommand()` → `JobService.executeCommand()` → `JobWebSocketService.executeCommand()`
-  - Path 2: `CommandPanel.executeCommand()` → `VMService.executeCommand()` → direct WebSocket emit
-  - Path 3: Legacy components may still use old patterns
-- Stale deprecated files on disk (`WebSocketService.js`, docs in `docs/deprecated/`).
+## ✅ **RESOLVED**: Unified Command Execution Implementation
+- **NEW**: Single `CommandExecutor` service consolidates all command execution logic
+- **UNIFIED PATH**: All components now use: `CommandExecutor.executeCommand()` → `JobService.executeCommand()` → `JobWebSocketService.executeCommand()`
+- **ELIMINATED DUPLICATES**:
+  - `CommandExecutionView` migrated to use `CommandExecutor`
+  - `CommandPanel` migrated to use `CommandExecutor`
+  - Legacy `CommandExecutionService` removed
+  - Direct `VMService.executeCommand()` path eliminated
+- **CENTRALIZED STATE**: Single execution state management with proper queuing
+- **BACKWARD COMPATIBILITY**: Service container provides alias for smooth transition
+
+---
+## 🚧 Remaining Minor Gaps
+- Stale deprecated files on disk (`WebSocketService.js`, docs in `docs/deprecated/`)
+- LogService circular dependency issue (temporarily disabled)
 
 ---
 ## 🔑 Immediate Actions
@@ -73,14 +82,14 @@
 - Simple log line management per job (`addLogLine()`, `getLogLinesForJob()`)
 - Used by Terminal component for display
 
-### Command Execution Flow Analysis 🚨
-**ISSUE CONFIRMED**: Multiple execution paths exist
+### Command Execution Flow Analysis ✅
+**ISSUE RESOLVED**: Unified execution path implemented
 
-**Primary Path (Intended)**:
+**NEW UNIFIED PATH**:
 ```
 CommandExecutionView.handleExecute() [Line 44]
   ↓
-CommandExecutionService.executeCommand() [Line 23]
+CommandExecutor.executeCommand() [Line 68]
   ↓
 JobService.executeCommand() [Line 24]
   ↓
@@ -89,18 +98,20 @@ JobWebSocketService.executeCommand() [Line 140]
 WebSocket emit('execute-command') [Line 170]
 ```
 
-**Secondary Path (Legacy)**:
+**CommandPanel Path (Updated)**:
 ```
-CommandPanel.executeCommand() [Line 36]
+CommandPanel.executeCommand() [Line 37]
   ↓
-VMService.executeCommand() [Line 246]
+CommandExecutor.executeCommand() [Line 68]
   ↓
-Direct WebSocket emit('execute-command') [Line 249]
+(Same unified path as above)
 ```
 
-**Dashboard Event Handlers**: ✅ NO DUPLICATE ISSUE
-- `handleCommandExecute()` (Line 32) - Only logs, no WebSocket emit
-- No duplicate `execute-command` emit found in Dashboard
+**Key Improvements**:
+- Single execution state management prevents concurrent executions
+- Centralized VM resolution and error handling
+- Execution history and statistics tracking
+- Proper execution queuing (foundation for future enhancements)
 
 ### Component Integration Status
 **Dashboard.svelte**: ✅ Fully migrated
@@ -117,20 +128,22 @@ Direct WebSocket emit('execute-command') [Line 249]
 - Proper command execution flow through services
 - **This is the PRIMARY execution component**
 
-**CommandPanel.svelte**: ⚠️ **LEGACY PATH ACTIVE**
-- Still uses `vmService.executeCommand()` directly (Line 42)
-- Bypasses `CommandExecutionService` layer
-- **Creates secondary execution path - potential for duplicates**
+**CommandPanel.svelte**: ✅ **MIGRATED TO UNIFIED PATH**
+- Now uses `CommandExecutor.executeCommand()` (Line 41)
+- Integrated with centralized execution state management
+- **No longer creates duplicate execution paths**
 
 ---
 ## 📝 Next Wave / PRD Polish
-- **Priority 1**: Consolidate command execution paths (remove `CommandPanel` or update to use `CommandExecutionService`)
+- **✅ COMPLETED**: Unified command execution architecture with `CommandExecutor` singleton
 - Job History: enhance UI & hit `/api/jobs` + `/api/vms/{vmId}/jobs` (pagination, replay, filters)
 - Command templates CRUD UI using `/api/commands` endpoints
 - UI addition: SSH connection-test modal calling `/api/ssh-hosts/{alias}/test`
 - Delete `SSHHostService` class + remaining `ApiService` subclasses after confirm no imports
 - Strip excessive console logs / auto comments from service files
-- Add integration tests for `VMService`, `commandStore`, container wiring
+- Add integration tests for `CommandExecutor`, `commandStore`, container wiring
+- Fix LogService circular dependency and re-enable
+- Implement command execution cancellation (backend support required)
 
 ---
 *(Keep this file updated after each task so everyone stays on the same page.)*

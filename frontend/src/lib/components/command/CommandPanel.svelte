@@ -15,8 +15,8 @@
     onadddefaults = () => {}
   } = $props();
 
+  const commandExecutor = getService('commandExecutor');
   const jobService = getService('jobService');
-  const vmService = getService('vmService');
 
   // ✅ FIX: Load commands when VM changes
   $effect(() => {
@@ -28,23 +28,18 @@
 
   // ✅ FIX: Use store commands instead of props
   let vmCommands = $derived($currentVMCommands || []);
-  let isExecuting = $derived(!!jobService.currentJob);
+  const isExecutingStore = commandExecutor.getIsExecuting();
+  let isExecuting = $derived($isExecutingStore);
   let isConnected = $derived(jobService.isConnected);
 
   console.log('CommandPanel - VM Commands:', vmCommands);
 
   async function executeCommand(command) {
     if (isExecuting || !isConnected || !$selectedVM) return;
-    
+
     try {
-      const vm = await vmService.ensureRegistered($selectedVM.alias);
-      
-      await jobService.executeCommand(vm.id, command.cmd, {
-        type: 'ssh',
-        hostAlias: vm.alias
-      });
-      
-      onexecute({ command, vm });
+      await commandExecutor.executeCommand($selectedVM, command);
+      onexecute({ command, vm: $selectedVM });
     } catch (error) {
       console.error('Execution failed:', error);
     }

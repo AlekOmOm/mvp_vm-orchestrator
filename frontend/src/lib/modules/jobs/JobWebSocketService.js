@@ -92,16 +92,6 @@ export class JobWebSocketService {
             return updatedJobs;
          });
 
-         // add log lines to logStore
-         if (Array.isArray(data.logLines) && data.logLines.length > 0) {
-            const last = data.logLines[data.logLines.length - 1];
-            logStore.addLogLine(data.jobId, {
-               stream: last.stream || 'stdout',
-               data: last.data || last,
-               timestamp: last.timestamp || new Date().toISOString(),
-            });
-         }
-
          this.currentJob.set(null);
          this.triggerEventHandlers("job:done", data);
 
