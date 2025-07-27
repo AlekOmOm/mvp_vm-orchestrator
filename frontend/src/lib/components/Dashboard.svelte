@@ -7,6 +7,7 @@
   import { onMount } from 'svelte';
   import { initializeServices } from '../core/ServiceContainer.js';
   import { vmStore } from '../stores/vmStore.js';
+  import { initializeJobStore } from '../stores/jobStore.js';
   import VMManagementPanel from './vm/VMManagementPanel.svelte';
   import ExecutionPanel from './execution/ExecutionPanel.svelte';
 
@@ -17,6 +18,7 @@
       console.log('🚀 Initializing Dashboard...');
       await initializeServices();
       await vmStore.loadVMs();
+      await initializeJobStore();
       console.log('✅ Dashboard initialized');
     } catch (error) {
       console.error('❌ Dashboard initialization failed:', error);

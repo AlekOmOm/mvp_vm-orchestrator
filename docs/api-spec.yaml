@@ -367,6 +367,75 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+    post:
+      summary: Create a new job
+      description: Manually create a new job entry.
+      operationId: createJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Job'
+      responses:
+        '201':
+          description: Job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '500':
+          description: Internal server error
+
+  /api/jobs/{jobId}:
+    get:
+      summary: Get job by ID
+      description: Retrieve a single job by its ID.
+      operationId: getJob
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '404':
+          description: Job not found
+        '500':
+          description: Internal server error
+    put:
+      summary: Update a job
+      description: Update an existing job's properties.
+      operationId: updateJob
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Job' # Assuming full or partial update
+      responses:
+        '200':
+          description: Job updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '500':
+          description: Internal server error
 
   /api/commands:
     get:
@@ -471,6 +540,271 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/ssh-hosts:
+    get:
+      summary: Get all SSH hosts
+      description: Retrieves a list of all SSH hosts discovered from the configuration.
+      operationId: getSshHosts
+      responses:
+        '200':
+          description: A list of SSH hosts.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SshHost'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/ssh-hosts/{alias}:
+    get:
+      summary: Get SSH host by alias
+      description: Retrieves details for a specific SSH host.
+      operationId: getSshHostByAlias
+      parameters:
+        - name: alias
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SSH host details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SshHost'
+        '404':
+          description: Host not found
+
+  /api/ssh-hosts/{alias}/validate:
+    get:
+      summary: Validate SSH host configuration
+      description: Checks if a specific SSH host configuration is valid.
+      operationId: validateSshHost
+      parameters:
+        - name: alias
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Validation result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alias: { type: string }
+                  valid: { type: boolean }
+                  issues: { type: array, items: { type: string } }
+        '404':
+          description: Host not found
+
+  /api/ssh-hosts/{alias}/test:
+    post:
+      summary: Test SSH connection
+      description: Attempts to establish an SSH connection to the host.
+      operationId: testSshConnection
+      parameters:
+        - name: alias
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Connection test result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alias: { type: string }
+                  success: { type: boolean }
+                  message: { type: string }
+                  responseTime: { type: number }
+
+  /api/vms/{hostAlias}/test:
+    get:
+      summary: Test SSH connection for a VM
+      description: Tests the SSH connectivity for a given VM alias.
+      operationId: testVmConnection
+      parameters:
+        - name: hostAlias
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Connection test result.
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+
+  /api/vms/{hostAlias}/execute:
+    post:
+      summary: Execute a command on a VM
+      description: Executes an arbitrary command on a VM via SSH.
+      operationId: executeVmCommand
+      parameters:
+        - name: hostAlias
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                command: { type: string }
+      responses:
+        '200':
+          description: Job execution initiated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId: { type: string, format: uuid }
+                  type: { type: string }
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+
+  /api/logs:
+    get:
+      summary: Get all logs
+      description: Retrieve all log entries with optional limit
+      operationId: getLogs
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of logs to return (default 10, max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: List of logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LogEntry'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Create a log entry
+      description: Create a new log entry in the database
+      operationId: createLog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogEntryCreate'
+      responses:
+        '201':
+          description: Log entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogEntry'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/logs/batch:
+    post:
+      summary: Create multiple log entries
+      description: Create multiple log entries at once for batch operations
+      operationId: createLogsBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                logs:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/LogEntryCreate'
+      responses:
+        '201':
+          description: Log entries created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LogEntry'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/logs/{jobId}:
+    get:
+      summary: Get logs for a specific job
+      description: Retrieve all log entries for a specific job
+      operationId: getJobLogs
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Maximum number of logs to return (default 10000)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+            default: 10000
+      responses:
+        '200':
+          description: List of logs for the job
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LogEntry'
         '500':
           description: Internal server error
           content:
@@ -790,3 +1124,75 @@ components:
           type: string
           format: date-time
           description: Timestamp of the log line
+
+    SshHost:
+      type: object
+      properties:
+        alias:
+          type: string
+        suggestedVMName:
+          type: string
+        hostname:
+          type: string
+        user:
+          type: string
+        port:
+          type: integer
+        identityFile:
+          type: string
+        isCloudInstance:
+          type: boolean
+        cloudProvider:
+          type: string
+          nullable: true
+
+    LogEntry:
+      type: object
+      required:
+        - id
+        - job_id
+        - stream
+        - data
+        - created_at
+      properties:
+        id:
+          type: integer
+          description: Unique identifier for the log entry
+        job_id:
+          type: string
+          format: uuid
+          description: ID of the job this log belongs to
+        stream:
+          type: string
+          enum: [stdout, stderr]
+          description: Stream name
+        data:
+          type: string
+          description: Log data content
+        created_at:
+          type: string
+          format: date-time
+          description: When the log entry was created
+
+    LogEntryCreate:
+      type: object
+      required:
+        - jobId
+        - data
+      properties:
+        jobId:
+          type: string
+          format: uuid
+          description: ID of the job this log belongs to
+        stream:
+          type: string
+          enum: [stdout, stderr]
+          description: Stream name (defaults to stdout)
+          default: stdout
+        data:
+          type: string
+          description: Log data content
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of the log entry (defaults to current time)

@@ -35,6 +35,10 @@ export class ExecutionManager {
       this.logJobEvent = this.logJobEvent.bind(this);
    }
 
+   async attachIO(io) {
+      this.io = io;
+   }
+
    /**
     * Update job cache with job information
     * @param {string} jobId - Job ID

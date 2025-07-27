@@ -12,16 +12,14 @@
   import { Badge } from '$lib/components/ui/badge';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import {
-    Clock,
-    CheckCircle2,
-    XCircle,
-    Loader2,
-    Terminal,
     Eye,
     RotateCcw
   } from 'lucide-svelte';
 
   let { job, showActions = true, compact = false, onviewlogs = () => {}, onretry = () => {} } = $props();
+  $effect(() => {
+    console.log('[Job] render', job.id, job.status);
+  });
 
   function handleViewLogs() {
     onviewlogs(job);
@@ -31,23 +29,55 @@
     onretry(job);
   }
 
-  // Map job status to StatusBadge status
+  // Enhanced status mapping with more status types
   let badgeStatus = $derived({
       'running': 'loading',
       'success': 'success',
+      'completed': 'success',
       'failed': 'error',
+      'error': 'error',
       'canceled': 'warning',
-      'spawned': 'info'
+      'cancelled': 'warning',
+      'spawned': 'info',
+      'pending': 'info',
+      'queued': 'info'
     }[job.status] || 'default');
-  
-  let startTime = $derived(job.started_at ? new Date(job.started_at).toLocaleString() : 'Unknown');
-  let endTime = $derived(job.finished_at ? new Date(job.finished_at).toLocaleString() : null);
-  let duration = $derived(job.started_at && job.finished_at ? Math.round((new Date(job.finished_at) - new Date(job.started_at)) / 1000) : null);
 
-  let displayCommand = $derived(job.command && job.command.length > 60 ? job.command.substring(0, 60) + '...' : job.command);
+  // Enhanced time formatting
+  let startTime = $derived(() => {
+    if (!job.started_at) return 'Not started';
+    const date = new Date(job.started_at);
+    return date.toLocaleString();
+  });
 
-  let canRetry = $derived(['failed', 'canceled'].includes(job.status));
-  let isActive = $derived(job.status === 'running');
+  let endTime = $derived(() => {
+    if (!job.finished_at) return null;
+    const date = new Date(job.finished_at);
+    return date.toLocaleString();
+  });
+
+  let duration = $derived(() => {
+    if (!job.started_at) return null;
+    const start = new Date(job.started_at);
+    const end = job.finished_at ? new Date(job.finished_at) : new Date();
+    const seconds = Math.round((end - start) / 1000);
+
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+    return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+  });
+
+  let displayCommand = $derived(() => {
+    if (!job.command) return 'No command';
+    const maxLength = compact ? 40 : 60;
+    return job.command.length > maxLength
+      ? job.command.substring(0, maxLength) + '...'
+      : job.command;
+  });
+
+  let canRetry = $derived(['failed', 'error', 'canceled', 'cancelled'].includes(job.status));
+
+
 </script>
 
 {#if compact}

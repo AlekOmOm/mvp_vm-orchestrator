@@ -14,11 +14,11 @@ import { serviceContainer } from "../core/ServiceContainer.js";
 import { selectedVM } from "./vmStore.js";
 import { logStore } from "./logStore.js";
 
-async function fetchAndStoreLogs(apiClient, jobId) {
-  try {
-    const data = await apiClient.get(`/api/jobs/${jobId}/logs`);
-    logStore.addLogLines(jobId, data);
-  } catch (_) {}
+async function fetchAndStoreLogs(jobService, jobId) {
+   try {
+      const data = await jobService.fetchJobLogs(jobId);
+      logStore.addLogLines(jobId, data);
+   } catch (_) {}
 }
 
 /**
@@ -65,6 +65,24 @@ function createJobStore() {
       ...baseStore,
 
       /**
+       * Initialize the job store by loading initial data
+       * @param {boolean} loadJobs - Whether to load jobs during initialization
+       */
+      async initialize(loadJobs = true) {
+         console.log("[JobStore] Initializing job store...");
+
+         if (loadJobs) {
+            try {
+               await this.loadJobs();
+               console.log("[JobStore] Initial jobs loaded successfully");
+            } catch (error) {
+               console.error("[JobStore] Failed to load initial jobs:", error);
+               baseStore.setState({ error: error.message });
+            }
+         }
+      },
+
+      /**
        * Load job history from API with caching
        * @param {boolean} forceRefresh - Force refresh even if cache is valid
        */
@@ -87,16 +105,60 @@ function createJobStore() {
                }
 
                console.log("[JobStore] Fetching fresh jobs data");
-               const apiClient = serviceContainer.get("apiClient");
-               const fetched = await apiClient.get("/api/jobs");
+               const jobService = serviceContainer.get("jobService");
+               const fetched = await jobService.fetchJobs();
 
-               // Merge with existing list to keep optimistic/running jobs
+               // Smart merge: prioritize WebSocket updates over stale REST data
                const mergedJobsMap = new Map();
-               [...fetched, ...currentState.jobs].forEach((j) => {
-                  mergedJobsMap.set(j.id, { ...mergedJobsMap.get(j.id), ...j });
+
+               // First add fetched jobs from REST API
+               fetched.forEach((job) => {
+                  mergedJobsMap.set(job.id, job);
                });
+
+               // Then overlay current jobs, but only if they have more recent data
+               currentState.jobs.forEach((currentJob) => {
+                  const fetchedJob = mergedJobsMap.get(currentJob.id);
+
+                  if (!fetchedJob) {
+                     // Job doesn't exist in fetched data (optimistic job)
+                     mergedJobsMap.set(currentJob.id, currentJob);
+                  } else {
+                     // Job exists in both - merge intelligently
+                     const currentFinished =
+                        currentJob.finished_at || currentJob.finishedAt;
+                     const fetchedFinished =
+                        fetchedJob.finished_at || fetchedJob.finishedAt;
+
+                     // If current job has completion data that fetched doesn't, prefer current
+                     if (currentFinished && !fetchedFinished) {
+                        mergedJobsMap.set(currentJob.id, {
+                           ...fetchedJob,
+                           ...currentJob,
+                        });
+                     } else if (
+                        currentJob.status !== "running" &&
+                        fetchedJob.status === "running"
+                     ) {
+                        // If current job is completed but fetched is still running, prefer current
+                        mergedJobsMap.set(currentJob.id, {
+                           ...fetchedJob,
+                           ...currentJob,
+                        });
+                     } else {
+                        // Otherwise prefer fetched data but keep any additional fields from current
+                        mergedJobsMap.set(currentJob.id, {
+                           ...currentJob,
+                           ...fetchedJob,
+                        });
+                     }
+                  }
+               });
+
                const jobs = Array.from(mergedJobsMap.values()).sort(
-                  (a, b) => new Date(b.started_at || b.createdAt || 0) - new Date(a.started_at || a.createdAt || 0)
+                  (a, b) =>
+                     new Date(b.started_at || b.createdAt || 0) -
+                     new Date(a.started_at || a.createdAt || 0)
                );
 
                const stats = calculateJobStats(jobs);
@@ -124,40 +186,43 @@ function createJobStore() {
        */
       async loadVMJobs(vmId, options = {}, withLogLines = false) {
          return withLoadingState(baseStore, async () => {
-            const apiClient = serviceContainer.get("apiClient");
-            const params = new URLSearchParams();
-            if (options.limit) params.append("limit", options.limit);
-            if (options.status) params.append("status", options.status);
-
-            const query = params.toString() ? `?${params.toString()}` : "";
-            const fetched = await apiClient.get(`/api/vms/${vmId}/jobs${query}`);
+            const jobService = serviceContainer.get("jobService");
+            const fetched = await jobService.fetchVMJobs(vmId, options);
 
             // Include optimistic jobs from global jobs array
-            const globalJobs = baseStore.getValue().jobs.filter(j => j.vmId === vmId);
+            const globalJobs = baseStore
+               .getValue()
+               .jobs.filter((j) => j.vmId === vmId);
             const existing = baseStore.getValue().jobsByVM[vmId] || [];
-            
+
             const mergedMap = new Map();
             [...fetched, ...globalJobs, ...existing].forEach((j) => {
                mergedMap.set(j.id, { ...mergedMap.get(j.id), ...j });
             });
-            
-            const jobs = Array.from(mergedMap.values())
-               .sort((a, b) => new Date(b.started_at || b.createdAt || 0) - new Date(a.started_at || a.createdAt || 0));
 
-            baseStore.updateWithLoading((state) => ({
-               ...state,
-               jobsByVM: { ...state.jobsByVM, [vmId]: jobs },
-            }), false);
+            const jobs = Array.from(mergedMap.values()).sort(
+               (a, b) =>
+                  new Date(b.started_at || b.createdAt || 0) -
+                  new Date(a.started_at || a.createdAt || 0)
+            );
+
+            baseStore.updateWithLoading(
+               (state) => ({
+                  ...state,
+                  jobsByVM: { ...state.jobsByVM, [vmId]: jobs },
+               }),
+               false
+            );
 
             if (withLogLines) {
                for (const j of jobs) {
-                  await fetchAndStoreLogs(apiClient, j.id);
+                  await fetchAndStoreLogs(jobService, j.id);
                }
             }
             return jobs;
          });
       },
-      
+
       setCurrentJob(job) {
          baseStore.setState({ currentJob: job });
          logStore.setCurrentJob(job);
@@ -186,21 +251,18 @@ function createJobStore() {
        * @param {Object} job - Job object
        */
       addJob(job) {
-         baseStore.updateWithLoading(
-            (state) => {
-               const updatedJobs = [job, ...state.jobs].slice(0, 100);
-               const vmJobs = state.jobsByVM[job.vmId] || [];
-               return {
-                  ...state,
-                  jobs: updatedJobs,
-                  jobsByVM: {
-                     ...state.jobsByVM,
-                     [job.vmId]: [job, ...vmJobs].slice(0, 100),
-                  },
-               };
-            },
-            false
-         );
+         baseStore.updateWithLoading((state) => {
+            const updatedJobs = [job, ...state.jobs].slice(0, 100);
+            const vmJobs = state.jobsByVM[job.vmId] || [];
+            return {
+               ...state,
+               jobs: updatedJobs,
+               jobsByVM: {
+                  ...state.jobsByVM,
+                  [job.vmId]: [job, ...vmJobs].slice(0, 100),
+               },
+            };
+         }, false);
          logStore.setCurrentJob(job);
       },
 
@@ -280,6 +342,12 @@ export const jobStore = createJobStore();
 
 // Derived stores for convenience
 export const jobs = derived(jobStore, ($jobStore) => $jobStore.jobs);
+export const jobsWithLogs = derived(jobStore, ($jobStore) => {
+   return $jobStore.jobs.map((job) => ({
+      ...job,
+      logLines: logStore.getLogLinesForJob(job.id),
+   }));
+});
 export const currentJob = derived(
    jobStore,
    ($jobStore) => $jobStore.currentJob
@@ -310,3 +378,22 @@ export const failedJobs = derived(jobs, ($jobs) =>
 export const successfulJobs = derived(jobs, ($jobs) =>
    $jobs.filter((job) => job.status === "completed" || job.status === "success")
 );
+
+/**
+ * Initialize the job store with initial data
+ * This should be called after the service container is initialized
+ */
+export async function initializeJobStore() {
+   try {
+      if (!serviceContainer.isInitialized()) {
+         console.warn(
+            "[JobStore] Service container not initialized yet, skipping job store initialization"
+         );
+         return;
+      }
+
+      await jobStore.initialize();
+   } catch (error) {
+      console.error("[JobStore] Failed to initialize job store:", error);
+   }
+}

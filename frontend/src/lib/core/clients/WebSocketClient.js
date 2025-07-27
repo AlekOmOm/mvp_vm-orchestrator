@@ -180,7 +180,13 @@ export class WebSocketClient {
 
       // Also register with socket if connected
       if (this.socket) {
-         this.socket.on(event, handler);
+         this.socket.on(event, (data) => {
+            // Add debugging for job completion events only (reduce spam)
+            if (event.startsWith("job:") && !event.includes("log")) {
+               console.log(`📨 WebSocket received ${event}:`, data);
+            }
+            handler(data);
+         });
       }
    }
 

@@ -24,7 +24,7 @@ StatusBadge.svelte?t=1753604073077:85 Uncaught TypeError: Cannot read properties
 -->
 
 <script>
-  import { Badge } from './badge';
+
   import { 
     CheckCircle, 
     XCircle, 
@@ -92,9 +92,9 @@ StatusBadge.svelte?t=1753604073077:85 Uncaught TypeError: Cannot read properties
     lg: 'text-sm px-3 py-1.5'
   };
 
-  let config = statusConfig['default'];
-  let IconComponent = null;
-  let isLoading = false;
+  let config = $state(statusConfig['default']);
+  let IconComponent = $state(null);
+  let isLoading = $state(false);
 
   const iconSize = {
     sm: 'w-3 h-3',
@@ -102,14 +102,13 @@ StatusBadge.svelte?t=1753604073077:85 Uncaught TypeError: Cannot read properties
     lg: 'w-4 h-4'
   };
 
-  let combinedClasses = `inline-flex items-center gap-1 font-medium rounded-full border ${config.classes} ${sizeConfig[size]} ${className}`.trim();
+  let combinedClasses = $derived(`inline-flex items-center gap-1 font-medium rounded-full border ${config.classes} ${sizeConfig[size]} ${className}`.trim());
 
   $effect(() => {
     const s = (status && typeof status.subscribe === 'function') ? get(status) : status;
     config = statusConfig[s] ?? statusConfig['default'];
     IconComponent = config.icon;
     isLoading = s === 'loading';
-    combinedClasses = `inline-flex items-center gap-1 font-medium rounded-full border ${config.classes} ${sizeConfig[size]} ${className}`.trim();
   });
 </script>
 

@@ -1,11 +1,9 @@
 import express from 'express';
 import { JobModel } from '../lib/models/JobModel.js';
-import { serverlessAPI } from '../lib/serverless-api-client.js';
 
 export function createJobsRouter(db) {
   const router = express.Router();
   const jobModel = new JobModel(db);
-
 
   router.get('/', async (req, res) => {
     try {
@@ -27,10 +25,12 @@ export function createJobsRouter(db) {
     }
   });
 
-
   router.get('/:jobId', async (req, res) => {
     try {
       const job = await jobModel.getJob(req.params.jobId);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
       res.json(job);
     } catch (error) {
       console.error('Error fetching job:', error);
@@ -60,4 +60,3 @@ export function createJobsRouter(db) {
 
   return router;
 }
-//ApiClient.js:136  GET http://localhost:5176/api/jobs?limit=10 404 (Not Found)

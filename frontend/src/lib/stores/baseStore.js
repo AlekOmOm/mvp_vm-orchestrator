@@ -33,6 +33,7 @@ export function createBaseStore(initialState, options = {}) {
 
    return {
       subscribe,
+      update, // Expose raw update method for direct state updates
 
       /**
        * Set loading state

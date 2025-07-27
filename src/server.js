@@ -1,35 +1,31 @@
 // server.js
-import http from 'http';
-import { Server } from 'socket.io';
-import { app, db, executionManager } from './app.js';
+import http from "http";
+import { Server } from "socket.io";
+import { app, db, executionManager } from "./app.js";
+import { WEBSOCKET_CONFIG, SERVER_CONFIG } from "./config/index.js";
 import {
-  WEBSOCKET_CONFIG,
-  SERVER_CONFIG,
-  COMMANDS,
-} from './config/index.js';
-import {
-  setupJobsNamespace,
-  enhanceExecutionManagerForNamespace,
-} from './websocket/jobs-namespace.js';
+   setupJobsNamespace,
+   enhanceExecutionManagerForNamespace,
+} from "./websocket/jobs-namespace.js";
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: WEBSOCKET_CONFIG.cors,
-  pingTimeout: WEBSOCKET_CONFIG.pingTimeout,
-  pingInterval: WEBSOCKET_CONFIG.pingInterval,
+   cors: WEBSOCKET_CONFIG.cors,
+   pingTimeout: WEBSOCKET_CONFIG.pingTimeout,
+   pingInterval: WEBSOCKET_CONFIG.pingInterval,
 });
 
-executionManager.attachIO(io);              // or constructor injection
+executionManager.attachIO(io);
 const jobsNS = setupJobsNamespace(io, executionManager);
 enhanceExecutionManagerForNamespace(executionManager, jobsNS);
 
-db.on('error', (err) => console.error('Database error:', err));
+db.on("error", (err) => console.error("Database error:", err));
 
-process.on('SIGTERM', async () => {
-  await db.end();
-  server.close(() => process.exit(0));
+process.on("SIGTERM", async () => {
+   await db.end();
+   server.close(() => process.exit(0));
 });
 
 server.listen(SERVER_CONFIG.port, () =>
-  console.log(`Server listening on ${SERVER_CONFIG.port}`),
+   console.log(`Server listening on ${SERVER_CONFIG.port}`)
 );

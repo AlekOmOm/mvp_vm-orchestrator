@@ -29,18 +29,4 @@
     className
   )}
   {...restProps}
-  on:blur
-  on:change
-  on:click
-  on:focus
-  on:focusin
-  on:focusout
-  on:keydown
-  on:keypress
-  on:keyup
-  on:mouseover
-  on:mouseenter
-  on:mouseleave
-  on:paste
-  on:input
 ></textarea>

@@ -1,6 +1,7 @@
 export class JobService {
-   constructor(jobSocketService) {
+   constructor(jobSocketService, apiClient) {
       this.socket = jobSocketService;
+      this.apiClient = apiClient;
    }
 
    getCurrentJob() {
@@ -39,5 +40,42 @@ export class JobService {
 
       console.log("📤 Executing command payload:", payload);
       return this.socket.executeCommand(payload);
+   }
+
+   async fetchJobs(options = {}) {
+      const params = new URLSearchParams();
+      if (options.limit) params.append("limit", options.limit);
+      
+      const query = params.toString() ? `?${params.toString()}` : "";
+      return this.apiClient.get(`/api/jobs${query}`);
+   }
+
+   async fetchJobById(jobId) {
+      return this.apiClient.get(`/api/jobs/${jobId}`);
+   }
+
+   async fetchJobLogs(jobId, options = {}) {
+      const params = new URLSearchParams();
+      if (options.limit) params.append("limit", options.limit);
+      
+      const query = params.toString() ? `?${params.toString()}` : "";
+      return this.apiClient.get(`/api/jobs/${jobId}/logs${query}`);
+   }
+
+   async fetchVMJobs(vmId, options = {}) {
+      const params = new URLSearchParams();
+      if (options.limit) params.append("limit", options.limit);
+      if (options.status) params.append("status", options.status);
+      
+      const query = params.toString() ? `?${params.toString()}` : "";
+      return this.apiClient.get(`/api/vms/${vmId}/jobs${query}`);
+   }
+
+   async createJob(jobData) {
+      return this.apiClient.post("/api/jobs", jobData);
+   }
+
+   async updateJob(jobId, updates) {
+      return this.apiClient.put(`/api/jobs/${jobId}`, updates);
    }
 }

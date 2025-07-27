@@ -16,7 +16,7 @@ import { VmsService } from "../modules/vms/services/VmsService.js";
 import { CommandService } from "../modules/commands/CommandService.js";
 import { JobService } from "../modules/jobs/services/JobService.js";
 import { CommandExecutor } from "./services/CommandExecutor.js";
-// import { LogService } from "../modules/logs/logService.js";
+import { LogService } from "../modules/logs/logService.js";
 import { writable } from "svelte/store";
 
 /**
@@ -66,7 +66,7 @@ export class ServiceContainer {
       );
       this.registerSingleton(
          "jobService",
-         (c) => new JobService(c.get("jobSocketService"))
+         (c) => new JobService(c.get("jobSocketService"), c.get("apiClient"))
       );
       this.registerSingleton(
          "vmService",
@@ -85,11 +85,10 @@ export class ServiceContainer {
       this.registerSingleton("commandExecutionService", (c) =>
          c.get("commandExecutor")
       );
-      // TODO: Fix circular dependency issue with LogService
-      // this.registerSingleton(
-      //    "logService",
-      //    (c) => new LogService(c.get("apiClient"))
-      // );
+      this.registerSingleton(
+         "logService",
+         (c) => new LogService(c.get("apiClient"))
+      );
    }
 
    /**

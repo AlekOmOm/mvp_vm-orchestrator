@@ -45,7 +45,8 @@ export class JobWebSocketService {
          const current = {
             ...data,
             id: data.jobId,
-            startedAt: data.timestamp || data.started_at || new Date().toISOString(),
+            startedAt:
+               data.timestamp || data.started_at || new Date().toISOString(),
          };
 
          this.currentJob.set(current);
@@ -60,7 +61,11 @@ export class JobWebSocketService {
                vmId: data.hostAlias || data.vmId,
             };
             jobStore.setCurrentJob(normalized);
-            jobStore.addJob({ ...normalized, status: "running", started_at: normalized.startedAt });
+            jobStore.addJob({
+               ...normalized,
+               status: "running",
+               started_at: normalized.startedAt,
+            });
          } catch (_) {}
       });
 
@@ -71,21 +76,33 @@ export class JobWebSocketService {
             data: data.chunk,
             timestamp: data.timestamp || new Date().toISOString(),
          });
-         
+
          this.triggerEventHandlers("job:log", data);
       });
 
-      this.wsClient.on("job:done", (data) => {
-         console.log("✅ Job completed:", data);
+      // Enhanced job completion handling - listen for multiple event types
+      const handleJobCompletion = (eventName, data) => {
+         console.log(`✅ Job ${eventName}:`, data);
+
+         // Determine final status based on event and data
+         let finalStatus = data.status || "completed";
+         if (eventName === "job:failed" || eventName === "job:error") {
+            finalStatus = "failed";
+         } else if (eventName === "job:completed" || eventName === "job:done") {
+            finalStatus = data.status || "completed";
+         }
 
          this.jobs.update((jobs) => {
             const updatedJobs = jobs.map((job) =>
                job.id === data.jobId
                   ? {
                        ...job,
-                       status: data.status,
-                       exitCode: data.exitCode,
-                       finished_at: data.timestamp,
+                       status: finalStatus,
+                       exitCode: data.exitCode || data.exit_code,
+                       finished_at:
+                          data.timestamp ||
+                          data.finished_at ||
+                          new Date().toISOString(),
                     }
                   : job
             );
@@ -93,33 +110,78 @@ export class JobWebSocketService {
          });
 
          this.currentJob.set(null);
-         this.triggerEventHandlers("job:done", data);
+         this.triggerEventHandlers(eventName, { ...data, status: finalStatus });
 
          // Reflect completion in global job store
          try {
             jobStore.updateJob(data.jobId, {
-               status: data.status,
-               exit_code: data.exitCode,
-               finished_at: data.timestamp,
+               status: finalStatus,
+               exit_code: data.exitCode || data.exit_code,
+               finished_at:
+                  data.timestamp ||
+                  data.finished_at ||
+                  new Date().toISOString(),
             });
             jobStore.setCurrentJob(null);
-         } catch (_) {}
-      });
+         } catch (error) {
+            console.error("Error updating job in store:", error);
+         }
+      };
 
-      this.wsClient.on("job:error", (data) => {
-         console.error("🚨 Job error:", data);
-         this.currentJob.set(null);
-         this.triggerEventHandlers("job:error", data);
+      // Listen for multiple completion event types
+      this.wsClient.on("job:done", (data) =>
+         handleJobCompletion("job:done", data)
+      );
+      this.wsClient.on("job:completed", (data) =>
+         handleJobCompletion("job:completed", data)
+      );
+      this.wsClient.on("job:finished", (data) =>
+         handleJobCompletion("job:finished", data)
+      );
+      this.wsClient.on("job:failed", (data) =>
+         handleJobCompletion("job:failed", data)
+      );
+      this.wsClient.on("job:error", (data) =>
+         handleJobCompletion("job:error", data)
+      );
+
+      // Job progress updates
+      this.wsClient.on("job:progress", (data) => {
+         console.log("📊 Job progress:", data);
 
          try {
-            jobStore.updateJob(data.jobId, { status: "failed" });
-            jobStore.setCurrentJob(null);
+            jobStore.updateJob(data.jobId, {
+               progress: data.progress,
+               status: data.status || "running",
+            });
          } catch (_) {}
+
+         this.triggerEventHandlers("job:progress", data);
       });
 
       // Connection events - forward from core client
       this.wsClient.on("core:connected", () => {
+         console.log("🔌 WebSocket connected, loading job history...");
          this.loadJobHistory();
+      });
+
+      // Add debugging for unknown events
+      this.wsClient.on("*", (eventName, data) => {
+         if (
+            eventName.startsWith("job:") &&
+            ![
+               "job:started",
+               "job:log",
+               "job:done",
+               "job:completed",
+               "job:finished",
+               "job:failed",
+               "job:error",
+               "job:progress",
+            ].includes(eventName)
+         ) {
+            console.log(`🔍 Unknown job event: ${eventName}`, data);
+         }
       });
    }
 
@@ -161,16 +223,16 @@ export class JobWebSocketService {
 
       // Optimistically add job to jobStore for immediate feedback
       try {
-        const optimisticJob = {
-          id: crypto.randomUUID?.() || Date.now().toString(),
-          vmId: formattedCommand.hostAlias || formattedCommand.vmId,
-          command: formattedCommand.command,
-          type: formattedCommand.type,
-          status: 'running',
-          started_at: new Date().toISOString()
-        };
-        jobStore.setCurrentJob(optimisticJob);
-        jobStore.addJob(optimisticJob);
+         const optimisticJob = {
+            id: crypto.randomUUID?.() || Date.now().toString(),
+            vmId: formattedCommand.hostAlias || formattedCommand.vmId,
+            command: formattedCommand.command,
+            type: formattedCommand.type,
+            status: "running",
+            started_at: new Date().toISOString(),
+         };
+         jobStore.setCurrentJob(optimisticJob);
+         jobStore.addJob(optimisticJob);
       } catch (_) {}
    }
 
@@ -303,11 +365,13 @@ export class JobWebSocketService {
    }
 
    getLogLinesForJob(jobId) {
-      return derived(this.logLines, (lines) => lines.filter((l) => l.jobId === jobId));
+      return derived(this.logLines, (lines) =>
+         lines.filter((l) => l.jobId === jobId)
+      );
    }
 
    subscribeLogs(jobIdOrCallback, maybeCallback) {
-      if (typeof jobIdOrCallback === 'function') {
+      if (typeof jobIdOrCallback === "function") {
          return this.logLines.subscribe(jobIdOrCallback);
       }
       const jobId = jobIdOrCallback;

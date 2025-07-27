@@ -28,6 +28,7 @@
   };
 
   function handleOverlayClick(event) {
+    // Only close if clicking directly on the overlay, not on modal content
     if (closeOnOverlayClick && event.target === event.currentTarget) {
       onClose();
     }
@@ -42,18 +43,19 @@
 
 {#if isOpen}
   <!-- Modal Overlay -->
-  <div 
+  <div
     class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
     onclick={handleOverlayClick}
     onkeydown={handleKeydown}
     role="dialog"
     aria-modal="true"
     aria-labelledby={title ? 'modal-title' : undefined}
+    tabindex="-1"
   >
     <!-- Modal Content -->
-    <div 
+    <div
       class="bg-white rounded-lg shadow-xl {sizeClasses[size]} w-full max-h-[90vh] overflow-hidden"
-      onclick={(e) => e.stopPropagation()}
+      role="document"
     >
       <!-- Header -->
       {#if title || showCloseButton}
