@@ -23,6 +23,40 @@
     onvmmanagecommands = () => {}
   } = $props();
 
+  // Sort VMs by most recently selected using localStorage history
+  const orderedVMs = $derived.by(() => {
+    if (vms.length === 0) return [];
+
+    // Get selection history from localStorage
+    let history = [];
+    try {
+      const stored = localStorage.getItem("vmSelectionHistory");
+      history = stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      history = [];
+    }
+
+    // Sort VMs by selection history order
+    const sortedVMs = [...vms].sort((a, b) => {
+      const aIndex = history.indexOf(a.id);
+      const bIndex = history.indexOf(b.id);
+
+      // If both are in history, sort by history order
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
+
+      // If only one is in history, prioritize it
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
+
+      // If neither is in history, sort alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
+
+    return sortedVMs;
+  });
+
 </script>
 
 <aside class="w-full h-full bg-background border-r border-border overflow-y-auto">
@@ -40,7 +74,7 @@
       </div>
     {:else}
       <div class="space-y-1">
-        {#each vms as vm}
+        {#each orderedVMs as vm, index}
           <VM
             vm={vm}
             isSelected={selectedVM?.id === vm.id}
@@ -49,34 +83,13 @@
             ondelete={onvmdelete}
             onmanagecommands={onvmmanagecommands}
           />
-          
-          <!-- <div class="flex items-center justify-between">
-                <div class="min-w-0 flex-1">
-                  <div class="font-medium text-sm truncate">{vm.name}</div>
-                  <div class="text-xs text-muted-foreground truncate font-mono">
-                    {vm.user}@{vm.host}
-                  </div>
-                  {#if vm.environment}
-                    <div class="text-xs text-muted-foreground mt-1 capitalize">
-                      {vm.environment}
-                    </div>
-                  {/if}
-                </div>
 
-                <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onclick={(e) => {
-                      e.stopPropagation();
-                      handleVMEdit(vm);
-                    }}
-                    class="h-6 w-6 p-0"
-                  >
-                    <Settings class="w-3 h-3" />
-                  </Button>
-                </div>
-              </div> -->
+          <!-- Add divider after recently selected VMs (first 3 in history) -->
+          {#if index === 2 && orderedVMs.length > 3}
+            <div class="border-t border-border my-2 mx-2">
+              <div class="text-xs text-muted-foreground text-center py-1">Other VMs</div>
+            </div>
+          {/if}
         {/each}
       </div>
     {/if}

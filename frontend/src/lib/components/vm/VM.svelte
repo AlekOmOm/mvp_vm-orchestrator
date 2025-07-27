@@ -65,7 +65,19 @@
   const createdDate = $derived(new Date(vm.createdAt).toLocaleDateString());
 </script>
 
-<Card class="transition-all duration-200 {isSelected ? 'ring-2 ring-primary border-primary' : 'hover:shadow-md'}">
+<div
+  class="cursor-pointer"
+  role="button"
+  tabindex="0"
+  onclick={handleSelect}
+  onkeydown={(e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleSelect();
+    }
+  }}
+>
+  <Card class="transition-all duration-200 {isSelected ? 'ring-2 ring-primary border-primary' : 'hover:shadow-md'}">
   <CardHeader class="pb-2">
     <div class="flex items-start justify-between">
       <div class="flex items-center gap-2">
@@ -153,4 +165,5 @@
       </Button>
     </div>
   </CardContent>
-</Card>
+  </Card>
+</div>

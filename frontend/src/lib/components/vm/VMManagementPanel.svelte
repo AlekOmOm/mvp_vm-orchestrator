@@ -128,8 +128,8 @@
 <!-- VM Management Panel -->
 <Panel variant="sidebar" class="h-full flex flex-col">
   <!-- Header with Refresh button -->
-  <div class="flex items-center justify-between p-4 border-b bg-white">
-    <h2 class="text-lg font-semibold text-gray-900">Virtual Machines</h2>
+  <div class="flex items-center justify-between p-4 border-b border-border bg-card">
+    <h2 class="text-lg font-semibold text-card-foreground">Virtual Machines</h2>
     <Button on:click={refreshVMs} size="sm" variant="outline">
       <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -169,19 +169,19 @@
 
   <!-- Selected VM Info -->
   {#if $selectedVM}
-    <div class="p-4 border-t bg-gray-50">
+    <div class="p-4 border-t border-border bg-muted">
       <div class="text-sm space-y-1">
-        <div class="font-medium text-gray-900">Selected VM</div>
-        <div class="text-gray-600">{$selectedVM.name}</div>
-        <div class="text-xs text-gray-500 font-mono">
+        <div class="font-medium text-foreground">Selected VM</div>
+        <div class="text-muted-foreground">{$selectedVM.name}</div>
+        <div class="text-xs text-muted-foreground font-mono">
           {$selectedVM.user}@{$selectedVM.host}
         </div>
         {#if $selectedVM.cloudProvider}
-          <div class="text-xs text-blue-600">
+          <div class="text-xs text-primary">
             {$selectedVM.cloudProvider}
           </div>
         {/if}
-        <div class="text-xs text-gray-400">
+        <div class="text-xs text-muted-foreground">
           SSH Alias: {$selectedVM.alias}
         </div>
       </div>

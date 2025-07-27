@@ -44,15 +44,30 @@ function createVMStore() {
                const vms = await vmService.loadVMs();
 
                baseStore.updateWithLoading((state) => {
+                  let selectedVM = null;
+
+                  // Keep current selected VM if it still exists
+                  if (
+                     state.selectedVM &&
+                     vms.find((vm) => vm.id === state.selectedVM.id)
+                  ) {
+                     selectedVM = vms.find(
+                        (vm) => vm.id === state.selectedVM.id
+                     );
+                  } else {
+                     // Try to restore from localStorage
+                     const lastSelectedVMId =
+                        localStorage.getItem("lastSelectedVMId");
+                     if (lastSelectedVMId) {
+                        selectedVM =
+                           vms.find((vm) => vm.id === lastSelectedVMId) || null;
+                     }
+                  }
+
                   return {
                      ...state,
                      vms,
-                     // Keep selected VM if it still exists
-                     selectedVM:
-                        state.selectedVM &&
-                        vms.find((vm) => vm.id === state.selectedVM.id)
-                           ? vms.find((vm) => vm.id === state.selectedVM.id)
-                           : null,
+                     selectedVM,
                   };
                }, false);
 
@@ -90,6 +105,53 @@ function createVMStore() {
        */
       selectVM(vm) {
          baseStore.setState({ selectedVM: vm });
+         // Save to localStorage and update selection history
+         if (vm) {
+            localStorage.setItem("lastSelectedVMId", vm.id);
+            this.updateSelectionHistory(vm.id);
+         } else {
+            localStorage.removeItem("lastSelectedVMId");
+         }
+      },
+
+      /**
+       * Update VM selection history in localStorage
+       * @param {string} vmId - VM ID to add to history
+       */
+      updateSelectionHistory(vmId) {
+         const historyKey = "vmSelectionHistory";
+         let history = [];
+
+         try {
+            const stored = localStorage.getItem(historyKey);
+            history = stored ? JSON.parse(stored) : [];
+         } catch (e) {
+            history = [];
+         }
+
+         // Remove existing entry if present
+         history = history.filter((id) => id !== vmId);
+
+         // Add to front of array
+         history.unshift(vmId);
+
+         // Keep only last 10 selections
+         history = history.slice(0, 10);
+
+         localStorage.setItem(historyKey, JSON.stringify(history));
+      },
+
+      /**
+       * Get VM selection history from localStorage
+       * @returns {Array} Array of VM IDs in order of most recent selection
+       */
+      getSelectionHistory() {
+         try {
+            const stored = localStorage.getItem("vmSelectionHistory");
+            return stored ? JSON.parse(stored) : [];
+         } catch (e) {
+            return [];
+         }
       },
 
       /**

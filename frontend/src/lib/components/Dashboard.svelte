@@ -3,6 +3,7 @@
 -->
 
 <script>
+  import ThemeToggle from './ui/ThemeToggle.svelte';
   import { onMount } from 'svelte';
   import { initializeServices } from '../core/ServiceContainer.js';
   import { vmStore } from '../stores/vmStore.js';
@@ -33,9 +34,10 @@
   }
 </script>
 
-<div class="h-screen flex flex-col bg-muted/30">
-  <header class="border-b bg-background px-6 py-4">
-    <h1 class="text-2xl font-bold">VM Orchestrator</h1>
+<div class="h-screen flex flex-col bg-background">
+  <header class="border-b border-border bg-card px-6 py-4 flex justify-between items-center">
+    <h1 class="text-2xl font-bold text-card-foreground">VM Orchestrator</h1>
+    <ThemeToggle class="fixed top-4 right-4" />
   </header>
 
   <div class="flex-1 flex overflow-hidden">
@@ -44,8 +46,8 @@
   </div>
 
   {#if errorMessage}
-    <div class="p-4 bg-red-50 border-t border-red-200">
-      <p class="text-red-700">{errorMessage}</p>
+    <div class="p-4 bg-destructive/10 border-t border-destructive/20">
+      <p class="text-destructive">{errorMessage}</p>
     </div>
   {/if}
 </div>

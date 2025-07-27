@@ -7,8 +7,7 @@
   const logLinesStore = jobService.getLogLines();
   const currentJobStore = jobService.getCurrentJob();
   let logLines = $derived($logLinesStore);
-  let currentJob = $derived($currentJobStore);
-  let isRunning = $derived(!!currentJob);
+  let isRunning = $derived(!!$currentJobStore);
   
   // Auto-scroll to bottom when new logs arrive
   let logContainer;

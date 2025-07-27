@@ -7,11 +7,14 @@
 
 <script>
   import { onMount } from 'svelte';
+  import { derived } from 'svelte/store';
   import { Button } from '$lib/components/ui/button';
   import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
   import { Badge } from '$lib/components/ui/badge';
-  import { Select } from '$lib/components/ui/select';
-  import Job from './Job.svelte';
+  import JobFilters from './jobSubs/JobFilters.svelte';
+  import JobStats from './jobSubs/JobStats.svelte';
+  import JobList from './jobSubs/JobList.svelte';
+  import JobListSkeleton from './jobSubs/JobListSkeleton.svelte';
   import { jobStore, jobs, currentVMJobs, jobLoading, jobStats } from '../../stores/jobStore.js';
   import { selectedVM } from '../../stores/vmStore.js';
   import {
@@ -65,27 +68,33 @@
     onretry(job);
   }
 
-  // Filter jobs based on current settings
-  let filteredJobs = $derived(() => {
+  // Filter jobs based on current settings (value signal)
+  let filteredJobs = $derived.by(() => {
     let jobList = [];
+    const vmJobs = $currentVMJobs || [];
+    const allJobs = $jobs || [];
 
     if (viewMode === 'vm' && $selectedVM) {
-      jobList = $currentVMJobs;
+      jobList = vmJobs;
     } else if (viewMode === 'all') {
-      jobList = $jobs;
+      jobList = allJobs;
     } else {
-      // Recent: combine both sources
-      jobList = [...($currentVMJobs || []), ...($jobs || [])]
-        .sort((a, b) => new Date(b.started_at || b.createdAt) - new Date(a.started_at || a.createdAt))
-        .slice(0, limit);
+      const combined = [...vmJobs, ...allJobs];
+      const uniqueJobs = Array.from(new Map(combined.map(job => [job.id, job])).values());
+      jobList = uniqueJobs
+        .sort((a, b) => new Date(b.started_at || b.createdAt) - new Date(a.started_at || a.createdAt));
     }
 
-    if (statusFilter !== 'all') {
-      jobList = jobList.filter(job => job.status === statusFilter);
-    }
+    let filtered = statusFilter === 'all'
+      ? jobList
+      : jobList.filter(job => job.status === statusFilter);
 
-    return jobList.slice(0, limit);
+    const final = filtered.slice(0, limit);
+
+    return final;
   });
+
+  $effect(() => { if (viewMode === 'vm' && $selectedVM) jobStore.loadVMJobs($selectedVM.id, { limit }); });
 
   // Status filter options
   const statusOptions = [
@@ -103,8 +112,8 @@
     { value: 'all', label: 'All Jobs' }
   ];
 
-  let stats = $derived(() => $jobStats);
-  let loading = $derived(() => $jobLoading);
+  let stats = $derived.by(() => $jobStats);
+  let loading = $derived.by(() => $jobLoading);
 </script>
 
 <Card>
@@ -127,57 +136,13 @@
     </div>
   </CardHeader>
 
-  <CardContent class="space-y-4">
-    <!-- Filters -->
-    <div class="flex gap-2 flex-wrap">
-      <div class="flex items-center gap-2">
-        <Select bind:value={viewMode} class="w-32">
-          {#each viewModeOptions as option}
-            <option value={option.value} disabled={option.disabled}>
-              {option.label}
-            </option>
-          {/each}
-        </Select>
-      </div>
+  <CardContent class="space-y-4 overflow-y-auto max-h-[75vh]">
+    <JobFilters bind:viewMode bind:statusFilter viewOptions={viewModeOptions} statusOptions={statusOptions} />
 
-      <Select bind:value={statusFilter} class="w-32">
-        {#each statusOptions as option}
-          <option value={option.value}>{option.label}</option>
-        {/each}
-      </Select>
-    </div>
+    <JobStats {stats} show={viewMode === 'all'} />
 
-    <!-- Stats Summary -->
-    {#if stats && viewMode === 'all'}
-      <div class="grid grid-cols-4 gap-2 p-3 bg-muted/50 rounded-lg">
-        <div class="text-center">
-          <div class="text-lg font-semibold">{stats.total}</div>
-          <div class="text-xs text-muted-foreground">Total</div>
-        </div>
-        <div class="text-center">
-          <div class="text-lg font-semibold text-blue-600">{stats.running}</div>
-          <div class="text-xs text-muted-foreground">Running</div>
-        </div>
-        <div class="text-center">
-          <div class="text-lg font-semibold text-green-600">{stats.success}</div>
-          <div class="text-xs text-muted-foreground">Success</div>
-        </div>
-        <div class="text-center">
-          <div class="text-lg font-semibold text-red-600">{stats.failed}</div>
-          <div class="text-xs text-muted-foreground">Failed</div>
-        </div>
-      </div>
-    {/if}
-
-    <!-- Job List -->
     {#if loading && filteredJobs.length === 0}
-      <div class="space-y-2">
-        {#each Array(3) as _}
-          <div class="animate-pulse">
-            <div class="h-16 bg-muted rounded-lg"></div>
-          </div>
-        {/each}
-      </div>
+      <JobListSkeleton />
     {:else if filteredJobs.length === 0}
       <div class="text-center py-8">
         <Clock class="w-8 h-8 text-muted-foreground mx-auto mb-2" />
@@ -191,24 +156,7 @@
         {/if}
       </div>
     {:else}
-      <div class="space-y-2">
-        {#each filteredJobs as job (job.id)}
-          <Job
-            {job}
-            {compact}
-            onviewlogs={handleViewLogs}
-            onretry={handleRetryJob}
-          />
-        {/each}
-      </div>
-
-      {#if filteredJobs.length >= limit}
-        <div class="text-center pt-2">
-          <p class="text-xs text-muted-foreground">
-            Showing latest {limit} jobs
-          </p>
-        </div>
-      {/if}
+      <JobList jobs={filteredJobs} {compact} limit={limit} onviewlogs={handleViewLogs} onretry={handleRetryJob} />
     {/if}
   </CardContent>
 </Card>

@@ -13,9 +13,9 @@
   } = $props();
 
   const variantClasses = {
-    sidebar: 'w-[20vw] min-w-[300px] max-w-[400px] flex-shrink-0',
-    main: 'flex-1 min-h-0',
-    default: ''
+    sidebar: 'w-[20vw] min-w-[300px] max-w-[400px] flex-shrink-0 bg-card border-r border-border',
+    main: 'flex-1 min-h-0 bg-background',
+    default: 'bg-card border border-border rounded-lg'
   };
 </script>
 

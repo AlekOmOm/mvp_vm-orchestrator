@@ -16,7 +16,7 @@ function handleChange(e) {
 }
 </script>
 
-<div class="border-b bg-gray-50">
+<div class="border-b bg-muted">
   <div class="flex items-center justify-between px-6 py-3">
     <ExecutionTabs {activeTab} onchange={handleChange} />
     <div class="flex items-center space-x-3">

@@ -8,6 +8,7 @@
  */
 
 import { writable } from "svelte/store";
+import { jobStore } from "../../stores/jobStore.js";
 
 /**
  * Job WebSocket Service class
@@ -43,6 +44,18 @@ export class JobWebSocketService {
          this.logLines.set([]);
 
          this.triggerEventHandlers("job:started", data);
+
+         // Update global job store
+         try {
+            const normalized = {
+               ...data,
+               vmId: data.hostAlias || data.vmId,
+            };
+            jobStore.setCurrentJob(normalized);
+            jobStore.addJob({ ...normalized, status: "running", started_at: data.timestamp || data.started_at || new Date().toISOString() });
+         } catch (_) {
+            // jobStore might not be initialized in some contexts
+         }
       });
 
       this.wsClient.on("job:log", (data) => {
@@ -83,12 +96,27 @@ export class JobWebSocketService {
 
          this.currentJob.set(null);
          this.triggerEventHandlers("job:done", data);
+
+         // Reflect completion in global job store
+         try {
+            jobStore.updateJob(data.jobId, {
+               status: data.status,
+               exit_code: data.exitCode,
+               finished_at: data.timestamp,
+            });
+            jobStore.setCurrentJob(null);
+         } catch (_) {}
       });
 
       this.wsClient.on("job:error", (data) => {
          console.error("🚨 Job error:", data);
          this.currentJob.set(null);
          this.triggerEventHandlers("job:error", data);
+
+         try {
+            jobStore.updateJob(data.jobId, { status: "failed" });
+            jobStore.setCurrentJob(null);
+         } catch (_) {}
       });
 
       // Connection events - forward from core client
@@ -132,6 +160,20 @@ export class JobWebSocketService {
       }
 
       this.wsClient.emit("execute-command", formattedCommand);
+
+      // Optimistically add job to jobStore for immediate feedback
+      try {
+        const optimisticJob = {
+          id: crypto.randomUUID?.() || Date.now().toString(),
+          vmId: formattedCommand.hostAlias || formattedCommand.vmId,
+          command: formattedCommand.command,
+          type: formattedCommand.type,
+          status: 'running',
+          started_at: new Date().toISOString()
+        };
+        jobStore.setCurrentJob(optimisticJob);
+        jobStore.addJob(optimisticJob);
+      } catch (_) {}
    }
 
    /**

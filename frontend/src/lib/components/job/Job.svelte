@@ -32,25 +32,22 @@
   }
 
   // Map job status to StatusBadge status
-  let badgeStatus = $derived(() => {
-    switch (job.status) {
-      case 'running': return 'loading';
-      case 'success': return 'success';
-      case 'failed': return 'error';
-      case 'canceled': return 'warning';
-      case 'spawned': return 'info';
-      default: return 'default';
-    }
-  });
+  let badgeStatus = $derived({
+      'running': 'loading',
+      'success': 'success',
+      'failed': 'error',
+      'canceled': 'warning',
+      'spawned': 'info'
+    }[job.status] || 'default');
+  
+  let startTime = $derived(job.started_at ? new Date(job.started_at).toLocaleString() : 'Unknown');
+  let endTime = $derived(job.finished_at ? new Date(job.finished_at).toLocaleString() : null);
+  let duration = $derived(job.started_at && job.finished_at ? Math.round((new Date(job.finished_at) - new Date(job.started_at)) / 1000) : null);
 
-  let startTime = $derived(() => job.started_at ? new Date(job.started_at).toLocaleString() : 'Unknown');
-  let endTime = $derived(() => job.finished_at ? new Date(job.finished_at).toLocaleString() : null);
-  let duration = $derived(() => (job.started_at && job.finished_at) ? Math.round((new Date(job.finished_at) - new Date(job.started_at)) / 1000) : null);
+  let displayCommand = $derived(job.command && job.command.length > 60 ? job.command.substring(0, 60) + '...' : job.command);
 
-  let displayCommand = $derived(() => job.command.length > 60 ? job.command.substring(0, 60) + '...' : job.command);
-
-  let canRetry = $derived(() => ['failed', 'canceled'].includes(job.status));
-  let isActive = $derived(() => job.status === 'running');
+  let canRetry = $derived(['failed', 'canceled'].includes(job.status));
+  let isActive = $derived(job.status === 'running');
 </script>
 
 {#if compact}
@@ -81,7 +78,7 @@
   </div>
 {:else}
   <!-- Full card view -->
-  <Card class="transition-all duration-200 {isActive ? 'ring-2 ring-blue-500 border-blue-500' : ''}">
+  <Card class="transition-all duration-200">
     <CardContent class="pt-4 space-y-3">
       <!-- Header -->
       <div class="flex items-start justify-between">

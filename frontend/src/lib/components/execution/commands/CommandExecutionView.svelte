@@ -21,8 +21,11 @@
   });
 
   let commands = $derived($currentVMCommands || []);
-  let isExecuting = $derived(commandExecutionService.getIsExecuting());
-  let connectionStatus = $derived(jobService.getConnectionStatus());
+  const isExecutingStore = commandExecutionService.getIsExecuting();
+  let isExecuting = $derived($isExecutingStore);
+
+  const connectionStatusStore = jobService.getConnectionStatus();
+  let connectionStatus = $derived($connectionStatusStore);
 
   let showAddForm = $state(false);
   let editingCommand = $state(null);
@@ -69,7 +72,7 @@
 </script>
 
 <div class="border-b">
-  <div class="p-2 text-xs text-gray-500 bg-gray-50 border-b">
+  <div class="p-2 text-xs text-muted-foreground bg-muted border-b">
     VM: {$selectedVM?.name || 'None'} | Alias: {$selectedVM?.alias || 'None'} | Commands: {commands.length} | Status: {connectionStatus}
   </div>
 
@@ -82,11 +85,11 @@
       <CommandGrid {commands} isExecuting={isExecuting} onexecute={handleExecute} onedit={handleEdit} ondelete={handleDelete} />
     </div>
   {:else if commands.length === 0 && $selectedVM}
-    <div class="p-8 text-center text-gray-500">
+    <div class="p-8 text-center text-muted-foreground">
       <Button size="sm" onclick={() => showAddForm = true} class="mt-2">Add First Command</Button>
     </div>
   {:else}
-    <div class="p-8 text-center text-gray-500">Select a VM to view commands</div>
+    <div class="p-8 text-center text-muted-foreground">Select a VM to view commands</div>
   {/if}
 </div>
 

@@ -12,7 +12,7 @@ function handleEdit(cmd) { onedit?.(cmd); }
 function handleDelete(cmd) { ondelete?.(cmd); }
 </script>
 
-<div class="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 auto-rows-fr">
+<div class="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 auto-rows-fr p-4 bg-background">
   {#each commands as c}
     <Command
       command={c}

@@ -80,9 +80,17 @@ function createJobStore() {
 
                console.log("[JobStore] Fetching fresh jobs data");
                const apiClient = serviceContainer.get("apiClient");
-               const jobs = await apiClient.get("/api/jobs");
+               const fetched = await apiClient.get("/api/jobs");
 
-               // Calculate statistics
+               // Merge with existing list to keep optimistic/running jobs
+               const mergedJobsMap = new Map();
+               [...fetched, ...currentState.jobs].forEach((j) => {
+                  mergedJobsMap.set(j.id, { ...mergedJobsMap.get(j.id), ...j });
+               });
+               const jobs = Array.from(mergedJobsMap.values()).sort(
+                  (a, b) => new Date(b.started_at || b.createdAt || 0) - new Date(a.started_at || a.createdAt || 0)
+               );
+
                const stats = calculateJobStats(jobs);
 
                baseStore.updateWithLoading(
@@ -118,9 +126,14 @@ function createJobStore() {
                if (options.status) params.append("status", options.status);
 
                const query = params.toString() ? `?${params.toString()}` : "";
-               const jobs = await apiClient.get(
-                  `/api/vms/${vmId}/jobs${query}`
-               );
+               const fetched = await apiClient.get(`/api/vms/${vmId}/jobs${query}`);
+
+               const existing = baseStore.getValue().jobsByVM[vmId] || [];
+               const mergedMap = new Map();
+               [...fetched, ...existing].forEach((j) => {
+                  mergedMap.set(j.id, { ...mergedMap.get(j.id), ...j });
+               });
+               const jobs = Array.from(mergedMap.values()).sort((a, b) => new Date(b.started_at || b.createdAt || 0) - new Date(a.started_at || a.createdAt || 0));
 
                baseStore.updateWithLoading(
                   (state) => ({
@@ -171,10 +184,18 @@ function createJobStore() {
        */
       addJob(job) {
          baseStore.updateWithLoading(
-            (state) => ({
-               ...state,
-               jobs: [job, ...state.jobs].slice(0, 100), // Keep last 100 jobs
-            }),
+            (state) => {
+               const updatedJobs = [job, ...state.jobs].slice(0, 100);
+               const vmJobs = state.jobsByVM[job.vmId] || [];
+               return {
+                  ...state,
+                  jobs: updatedJobs,
+                  jobsByVM: {
+                     ...state.jobsByVM,
+                     [job.vmId]: [job, ...vmJobs].slice(0, 100),
+                  },
+               };
+            },
             false
          );
       },

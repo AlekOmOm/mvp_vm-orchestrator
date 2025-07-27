@@ -20,13 +20,10 @@ export class CommandExecutionService {
     try {
       const vm = await this.vmService.ensureRegistered(selectedVM.alias);
       console.log('✅ VM resolved:', vm);
-      // Pass a single object to match JobWebSocketService.executeCommand signature
-      const result = await this.jobService.executeCommand({
-        command: command.cmd,
+      const result = await this.jobService.executeCommand(vm.id, command.cmd, {
         type: command.type || 'ssh',
         workingDir: command.workingDir,
-        hostAlias: selectedVM.alias,
-        vmId: vm.id
+        hostAlias: selectedVM.alias
       });
       console.log('✅ Command executed:', result);
       return result;

@@ -16,7 +16,8 @@
   let activeTab = $state('execute');
   let currentAlert = $state(null);
 
-  let currentJob = $derived(jobService.getCurrentJob());
+  const currentJobStore = jobService.getCurrentJob();
+  let currentJob = $derived($currentJobStore);
 
   function handleTabChange(event) {
     activeTab = event.tab;
@@ -40,7 +41,7 @@
   }
 </script>
 
-<Panel variant="main" class="h-full flex flex-col bg-white">
+<Panel variant="main" class="h-full flex flex-col bg-card">
   <ExecutionHeader {activeTab} ontabchange={handleTabChange} />
   <ExecutionAlert alert={currentAlert} ondismiss={handleAlertDismiss} />
   
@@ -58,12 +59,12 @@
   </div>
 
   {#if currentJob}
-    <div class="border-t bg-gray-50 px-6 py-3 text-sm text-gray-600 flex justify-between">
+    <div class="border-t bg-muted px-6 py-3 text-sm text-muted-foreground flex justify-between">
       <div class="flex items-center gap-2">
-        <Clock class="w-4 h-4 text-gray-500" />
+        <Clock class="w-4 h-4 text-muted-foreground" />
         Running: <code class="font-mono">{currentJob.command}</code>
       </div>
-      <span class="text-xs text-gray-500">
+      <span class="text-xs text-muted-foreground">
         Started: {new Date(currentJob.startedAt ?? Date.now()).toLocaleTimeString()}
       </span>
     </div>
