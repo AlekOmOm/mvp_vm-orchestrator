@@ -32,6 +32,10 @@ setup:
 	@cd frontend && npm install --legacy-peer-deps
 	@make db-init
 
+.PHONY: run
+run: stop db-init dev
+
+
 .PHONY: db-init
 db-init:
 	@echo "⏳ Waiting for database to be ready..."
