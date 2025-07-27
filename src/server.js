@@ -27,6 +27,7 @@ import {
    COMMANDS,
    getEnvironmentConfig,
 } from "./config/index.js";
+import { syncSshHostsToVms } from './lib/vm-auto-register.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -142,8 +143,9 @@ app.get("/api/jobs", async (req, res) => {
  * @route GET /api/ssh-hosts
  * @returns {Array} Array of SSH host configurations with VM suggestions
  */
-app.get("/api/ssh-hosts", (_, res) => {
+app.get("/api/ssh-hosts", async (_, res) => {
    try {
+      await syncSshHostsToVms();
       const hosts = SSHManager.getAllHosts();
 
       // Transform for frontend consumption
@@ -483,3 +485,6 @@ app.get("/api/vms/:vmId/jobs", async (req, res) => {
       res.status(status).json({ error: error.message });
    }
 });
+
+// initial sync
+syncSshHostsToVms(true);

@@ -6,102 +6,61 @@
 -->
 
 <script>
-  import { createEventDispatcher } from 'svelte';
+
   import { Button } from '$lib/components/ui/button';
   import { Card, CardContent } from '$lib/components/ui/card';
   import { Badge } from '$lib/components/ui/badge';
-  import { 
-    Clock, 
-    CheckCircle2, 
-    XCircle, 
-    Loader2, 
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
+  import {
+    Clock,
+    CheckCircle2,
+    XCircle,
+    Loader2,
     Terminal,
     Eye,
     RotateCcw
   } from 'lucide-svelte';
 
-  let { job, showActions = true, compact = false, onviewlogs, onretry } = $props();
-
-  const dispatch = createEventDispatcher();
+  let { job, showActions = true, compact = false, onviewlogs = () => {}, onretry = () => {} } = $props();
 
   function handleViewLogs() {
-    dispatch('view-logs', job);
+    onviewlogs(job);
   }
 
   function handleRetry() {
-    dispatch('retry', job);
+    onretry(job);
   }
 
-  // Get status configuration
-  $: statusConfig = {
-    'running': { 
-      icon: Loader2, 
-      variant: 'secondary', 
-      class: 'animate-spin',
-      color: 'text-blue-600'
-    },
-    'success': { 
-      icon: CheckCircle2, 
-      variant: 'default', 
-      class: '',
-      color: 'text-green-600'
-    },
-    'failed': { 
-      icon: XCircle, 
-      variant: 'destructive', 
-      class: '',
-      color: 'text-red-600'
-    },
-    'spawned': { 
-      icon: Terminal, 
-      variant: 'outline', 
-      class: '',
-      color: 'text-purple-600'
-    },
-    'canceled': { 
-      icon: XCircle, 
-      variant: 'secondary', 
-      class: '',
-      color: 'text-gray-600'
+  // Map job status to StatusBadge status
+  let badgeStatus = $derived(() => {
+    switch (job.status) {
+      case 'running': return 'loading';
+      case 'success': return 'success';
+      case 'failed': return 'error';
+      case 'canceled': return 'warning';
+      case 'spawned': return 'info';
+      default: return 'default';
     }
-  }[job.status] || { 
-    icon: Clock, 
-    variant: 'outline', 
-    class: '',
-    color: 'text-gray-600'
-  };
+  });
 
-  // Format timestamps
-  $: startTime = job.started_at ? new Date(job.started_at).toLocaleString() : 'Unknown';
-  $: endTime = job.finished_at ? new Date(job.finished_at).toLocaleString() : null;
-  $: duration = job.started_at && job.finished_at 
-    ? Math.round((new Date(job.finished_at) - new Date(job.started_at)) / 1000)
-    : null;
+  let startTime = $derived(() => job.started_at ? new Date(job.started_at).toLocaleString() : 'Unknown');
+  let endTime = $derived(() => job.finished_at ? new Date(job.finished_at).toLocaleString() : null);
+  let duration = $derived(() => (job.started_at && job.finished_at) ? Math.round((new Date(job.finished_at) - new Date(job.started_at)) / 1000) : null);
 
-  // Truncate command for display
-  $: displayCommand = job.command.length > 60 
-    ? job.command.substring(0, 60) + '...' 
-    : job.command;
+  let displayCommand = $derived(() => job.command.length > 60 ? job.command.substring(0, 60) + '...' : job.command);
 
-  $: canRetry = ['failed', 'canceled'].includes(job.status);
-  $: isActive = job.status === 'running';
+  let canRetry = $derived(() => ['failed', 'canceled'].includes(job.status));
+  let isActive = $derived(() => job.status === 'running');
 </script>
 
 {#if compact}
   <!-- Compact view for lists -->
   <div class="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
-    <div class="flex-shrink-0">
-      <svelte:component 
-        this={statusConfig.icon} 
-        class="w-4 h-4 {statusConfig.color} {statusConfig.class}" 
-      />
-    </div>
-    
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2 mb-1">
-        <Badge variant={statusConfig.variant} class="text-xs">
+        <StatusBadge status={badgeStatus} size="sm">
           {job.status}
-        </Badge>
+        </StatusBadge>
         <span class="text-xs text-muted-foreground">{startTime}</span>
       </div>
       <p class="text-sm font-mono truncate">{displayCommand}</p>
@@ -127,13 +86,9 @@
       <!-- Header -->
       <div class="flex items-start justify-between">
         <div class="flex items-center gap-2">
-          <svelte:component 
-            this={statusConfig.icon} 
-            class="w-5 h-5 {statusConfig.color} {statusConfig.class}" 
-          />
-          <Badge variant={statusConfig.variant} class="text-xs">
+          <StatusBadge status={badgeStatus}>
             {job.status}
-          </Badge>
+          </StatusBadge>
           {#if job.type}
             <Badge variant="outline" class="text-xs">
               {job.type}

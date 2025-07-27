@@ -1,0 +1,731 @@
+openapi: 3.0.3
+info:
+  title: VM Orchestrator API
+  description: API for managing virtual machines, commands, and job execution
+  version: 1.0.0
+  contact:
+    name: VM Orchestrator Team
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: http://localhost:3000/api
+    description: API base path
+
+paths:
+  /api/vms:
+    get:
+      summary: Get all VMs
+      description: Retrieve a list of all virtual machines
+      operationId: getVMs
+      responses:
+        '200':
+          description: List of VMs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VM'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Create a new VM
+      description: Create a new virtual machine
+      operationId: createVM
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VMCreate'
+      responses:
+        '201':
+          description: VM created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VM'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: VM already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/vms/{id}:
+    get:
+      summary: Get VM by ID
+      description: Retrieve a specific virtual machine by ID
+      operationId: getVM
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: VM details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VM'
+        '404':
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: Update VM
+      description: Update an existing virtual machine
+      operationId: updateVM
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VMUpdate'
+      responses:
+        '200':
+          description: VM updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VM'
+        '404':
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete VM
+      description: Delete a virtual machine
+      operationId: deleteVM
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: VM deleted successfully
+        '404':
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/vms/{vmId}/commands:
+    get:
+      summary: Get commands for a VM
+      description: Retrieve all commands for a specific virtual machine
+      operationId: getVMCommands
+      parameters:
+        - name: vmId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of commands
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Command'
+        '404':
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Create command for VM
+      description: Create a new command for a specific virtual machine
+      operationId: createCommand
+      parameters:
+        - name: vmId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommandCreate'
+      responses:
+        '201':
+          description: Command created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Command'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Command already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/commands/{id}:
+    get:
+      summary: Get command by ID
+      description: Retrieve a specific command by ID
+      operationId: getCommand
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Command details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Command'
+        '404':
+          description: Command not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: Update command
+      description: Update an existing command
+      operationId: updateCommand
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommandUpdate'
+      responses:
+        '200':
+          description: Command updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Command'
+        '404':
+          description: Command not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete command
+      description: Delete a command
+      operationId: deleteCommand
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Command deleted successfully
+        '404':
+          description: Command not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/jobs:
+    get:
+      summary: Get job history
+      description: Retrieve job execution history
+      operationId: getJobs
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of jobs to return (default 10, max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Job'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/commands:
+    get:
+      summary: Get available command templates
+      description: Retrieve predefined command templates that can be used as suggestions when creating new commands
+      operationId: getAvailableCommands
+      responses:
+        '200':
+          description: Available command templates
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/CommandTemplate'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/vms/{vmId}/jobs:
+    get:
+      summary: Get cached jobs for VM
+      description: Retrieve cached job execution results for a specific VM
+      operationId: getVMJobs
+      parameters:
+        - name: vmId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Maximum number of jobs to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: status
+          in: query
+          description: Filter jobs by status
+          schema:
+            type: string
+            enum: [pending, running, completed, failed]
+      responses:
+        '200':
+          description: List of cached jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CachedJob'
+        '404':
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    VM:
+      type: object
+      required:
+        - id
+        - name
+        - host
+        - user
+        - environment
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the VM
+        name:
+          type: string
+          description: Human-readable name for the VM
+        host:
+          type: string
+          description: Hostname or IP address of the VM
+        user:
+          type: string
+          description: Username for SSH connection
+        environment:
+          type: string
+          enum: [development, staging, production, testing]
+          description: Environment type
+        description:
+          type: string
+          description: Optional description of the VM
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    VMCreate:
+      type: object
+      required:
+        - name
+        - host
+        - user
+        - environment
+      properties:
+        name:
+          type: string
+          description: Human-readable name for the VM
+        host:
+          type: string
+          description: Hostname or IP address of the VM
+        user:
+          type: string
+          description: Username for SSH connection
+        environment:
+          type: string
+          enum: [development, staging, production, testing]
+          description: Environment type
+        description:
+          type: string
+          description: Optional description of the VM
+
+    VMUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Human-readable name for the VM
+        host:
+          type: string
+          description: Hostname or IP address of the VM
+        user:
+          type: string
+          description: Username for SSH connection
+        environment:
+          type: string
+          enum: [development, staging, production, testing]
+          description: Environment type
+        description:
+          type: string
+          description: Optional description of the VM
+
+    Command:
+      type: object
+      required:
+        - id
+        - name
+        - cmd
+        - type
+        - vmId
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the command
+        name:
+          type: string
+          description: Human-readable name for the command
+        cmd:
+          type: string
+          description: The actual command to execute
+        type:
+          type: string
+          enum: [ssh, local]
+          description: Command execution type
+        vmId:
+          type: string
+          format: uuid
+          description: ID of the VM this command belongs to
+        description:
+          type: string
+          description: Optional description of the command
+        timeout:
+          type: integer
+          description: Command timeout in milliseconds
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    CommandCreate:
+      type: object
+      required:
+        - name
+        - cmd
+        - type
+      properties:
+        name:
+          type: string
+          description: Human-readable name for the command
+        cmd:
+          type: string
+          description: The actual command to execute
+        type:
+          type: string
+          enum: [ssh, local]
+          description: Command execution type
+        description:
+          type: string
+          description: Optional description of the command
+        timeout:
+          type: integer
+          description: Command timeout in milliseconds
+
+    CommandUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Human-readable name for the command
+        cmd:
+          type: string
+          description: The actual command to execute
+        type:
+          type: string
+          enum: [ssh, local]
+          description: Command execution type
+        description:
+          type: string
+          description: Optional description of the command
+        timeout:
+          type: integer
+          description: Command timeout in milliseconds
+
+    Job:
+      type: object
+      required:
+        - id
+        - type
+        - command
+        - status
+        - started_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the job
+        type:
+          type: string
+          description: Job type (e.g., ssh, local)
+        command:
+          type: string
+          description: The command that was executed
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+          description: Current job status
+        started_at:
+          type: string
+          format: date-time
+          description: Job start timestamp
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Job completion timestamp
+        exit_code:
+          type: integer
+          nullable: true
+          description: Command exit code
+
+    CachedJob:
+      type: object
+      required:
+        - id
+        - vmId
+        - commandId
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the cached job
+        vmId:
+          type: string
+          format: uuid
+          description: ID of the VM where the job was executed
+        commandId:
+          type: string
+          format: uuid
+          description: ID of the command that was executed
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+          description: Job execution status
+        output:
+          type: string
+          description: Command output
+        error:
+          type: string
+          description: Error message if job failed
+        createdAt:
+          type: string
+          format: date-time
+          description: Job creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    CommandTemplate:
+      type: object
+      required:
+        - type
+        - cmd
+        - description
+      properties:
+        type:
+          type: string
+          enum: [stream, ssh, terminal]
+          description: Command execution type
+        cmd:
+          type: string
+          description: The command template to execute
+        description:
+          type: string
+          description: Human-readable description of the command
+        hostAlias:
+          type: string
+          description: SSH host alias (required for SSH commands)
+        workingDir:
+          type: string
+          description: Working directory for command execution
+        timeout:
+          type: integer
+          description: Command timeout in milliseconds
+        env:
+          type: object
+          description: Environment variables to set
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+        details:
+          type: object
+          description: Additional error details

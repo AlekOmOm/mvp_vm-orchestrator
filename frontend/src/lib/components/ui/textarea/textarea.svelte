@@ -1,16 +1,18 @@
 <script>
   import { cn } from "$lib/utils.js";
 
-  let className = undefined;
-  export { className as class };
-  let value = "";
-  let placeholder = "";
-   let disabled = false;
-   let readonly = false;
-   let id = undefined;
-   let name = undefined;
-   let rows = 3;
-   let cols = undefined;
+  let {
+    class: className = undefined,
+    value = "",
+    placeholder = "",
+    disabled = false,
+    readonly = false,
+    id = undefined,
+    name = undefined,
+    rows = 3,
+    cols = undefined,
+    ...restProps
+  } = $props();
 </script>
 
 <textarea

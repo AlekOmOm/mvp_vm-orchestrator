@@ -7,7 +7,6 @@
 
 <script>
   import { onMount } from 'svelte';
-  import { createEventDispatcher } from 'svelte';
   import { Button } from '$lib/components/ui/button';
   import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
   import { Badge } from '$lib/components/ui/badge';
@@ -15,23 +14,24 @@
   import Job from './Job.svelte';
   import { jobStore, jobs, currentVMJobs, jobLoading, jobStats } from '../../stores/jobStore.js';
   import { selectedVM } from '../../stores/vmStore.js';
-  import { 
-    History, 
-    Filter, 
-    RefreshCw, 
-    Clock,
-    CheckCircle2,
-    XCircle,
-    AlertCircle
+  import {
+    History,
+    RefreshCw,
+    Clock
   } from 'lucide-svelte';
 
-  const dispatch = createEventDispatcher();
-
-  let { showVMJobs = true, showAllJobs = true, compact = false, limit = 20, onviewlogs, onretry } = $props();
+  let {
+    showVMJobs = true,
+    showAllJobs = true,
+    compact = false,
+    limit = 20,
+    onviewlogs = () => {},
+    onretry = () => {},
+  } = $props();
 
   // Filter state
-  let statusFilter = 'all';
-  let viewMode = 'recent'; // 'recent', 'vm', 'all'
+  let statusFilter = $state('all');
+  let viewMode = $state('recent'); // 'recent', 'vm', 'all'
 
   // Load jobs on mount
   onMount(() => {
@@ -41,30 +41,34 @@
   });
 
   // Load VM jobs when selected VM changes
-  $: if ($selectedVM && showVMJobs) {
+  let loadVMJobs = () => {
     jobStore.loadVMJobs($selectedVM.id, { limit });
+  };
+
+  if ($selectedVM && showVMJobs) {
+    loadVMJobs();
   }
 
   function handleRefresh() {
     if (viewMode === 'vm' && $selectedVM) {
-      jobStore.loadVMJobs($selectedVM.id, { limit });
+      loadVMJobs();
     } else if (showAllJobs) {
       jobStore.loadJobs();
     }
   }
 
-  function handleViewLogs(event) {
-    dispatch('view-logs', event.detail);
+  function handleViewLogs(job) {
+    onviewlogs(job);
   }
 
-  function handleRetryJob(event) {
-    dispatch('retry-job', event.detail);
+  function handleRetryJob(job) {
+    onretry(job);
   }
 
   // Filter jobs based on current settings
-  $: filteredJobs = (() => {
+  let filteredJobs = $derived(() => {
     let jobList = [];
-    
+
     if (viewMode === 'vm' && $selectedVM) {
       jobList = $currentVMJobs;
     } else if (viewMode === 'all') {
@@ -81,7 +85,7 @@
     }
 
     return jobList.slice(0, limit);
-  })();
+  });
 
   // Status filter options
   const statusOptions = [
@@ -99,8 +103,8 @@
     { value: 'all', label: 'All Jobs' }
   ];
 
-  $: stats = $jobStats;
-  $: loading = $jobLoading;
+  let stats = $derived(() => $jobStats);
+  let loading = $derived(() => $jobLoading);
 </script>
 
 <Card>
@@ -127,7 +131,6 @@
     <!-- Filters -->
     <div class="flex gap-2 flex-wrap">
       <div class="flex items-center gap-2">
-        <Filter class="w-4 h-4 text-muted-foreground" />
         <Select bind:value={viewMode} class="w-32">
           {#each viewModeOptions as option}
             <option value={option.value} disabled={option.disabled}>
@@ -193,8 +196,8 @@
           <Job
             {job}
             {compact}
-            on:view-logs={handleViewLogs}
-            on:retry={handleRetryJob}
+            onviewlogs={handleViewLogs}
+            onretry={handleRetryJob}
           />
         {/each}
       </div>

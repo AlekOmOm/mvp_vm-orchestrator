@@ -1,93 +1,99 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
   import { Button } from '$lib/components/ui/button';
   import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
   import { Badge } from '$lib/components/ui/badge';
-  import { Terminal, Play, Loader2 } from 'lucide-svelte';
+  import { Terminal, Play, Loader2, Plus } from 'lucide-svelte';
+  import { getService } from '$lib/core/ServiceContainer.js';
+  import { selectedVM } from '../../stores/vmStore.js';
+  import { commandStore, currentVMCommands } from '../../stores/commandStore.js';
 
-  const dispatch = createEventDispatcher();
+  let {
+    commands = {},
+    vmName = '',
+    onexecute = () => {},
+    onaddcommand = () => {},
+    onadddefaults = () => {}
+  } = $props();
 
-  let { commands = {}, currentJob, onexecute } = $props();
+  const jobService = getService('jobService');
+  const vmService = getService('vmService');
 
-  function executeCommand(commandGroup, commandName) {
-    if (currentJob) return;
-    dispatch('execute-command', { group: commandGroup, name: commandName });
+  // ✅ FIX: Load commands when VM changes
+  $effect(() => {
+    if ($selectedVM?.id) {
+      console.log('Loading commands for VM:', $selectedVM.id);
+      commandStore.loadVMCommands($selectedVM.id);
+    }
+  });
+
+  // ✅ FIX: Use store commands instead of props
+  let vmCommands = $derived($currentVMCommands || []);
+  let isExecuting = $derived(!!jobService.currentJob);
+  let isConnected = $derived(jobService.isConnected);
+
+  console.log('CommandPanel - VM Commands:', vmCommands);
+
+  async function executeCommand(command) {
+    if (isExecuting || !isConnected || !$selectedVM) return;
+    
+    try {
+      const vm = await vmService.ensureRegistered($selectedVM.alias);
+      
+      await jobService.executeCommand(vm.id, command.cmd, {
+        type: 'ssh',
+        hostAlias: vm.alias
+      });
+      
+      onexecute({ command, vm });
+    } catch (error) {
+      console.error('Execution failed:', error);
+    }
   }
-
-  /* ------------------------------------------------------------------ */
-  /* derived values                                                     */
-  /* ------------------------------------------------------------------ */
-  $: isExecuting = !!currentJob
-  $: commandGroups = Object.keys(commands || {})
 </script>
 
 <div class="h-full overflow-y-auto p-4 space-y-4">
-  {#if commandGroups.length === 0}
-    <div class="flex items-center justify-center h-32 text-muted-foreground">
-      <Loader2 class="w-4 h-4 mr-2 animate-spin" />
-      Loading commands…
+  {#if !$selectedVM}
+    <div class="text-center text-muted-foreground py-8">
+      Select a VM to view commands
+    </div>
+  {:else if vmCommands.length === 0}
+    <div class="flex flex-col items-center justify-center h-40 text-muted-foreground space-y-4">
+      <p>No commands for {$selectedVM.name} yet.</p>
+      <div class="flex gap-2">
+        <Button variant="outline" size="sm" onclick={onaddcommand}>
+          <Plus class="w-3 h-3 mr-1" /> Add Command
+        </Button>
+        <Button variant="outline" size="sm" onclick={onadddefaults}>
+          Use Defaults
+        </Button>
+      </div>
     </div>
   {:else}
-    {#each commandGroups as groupName}
-      {@const group = commands[groupName] || {}}
-      <Card>
-        <CardHeader class="pb-3">
-          <div class="flex items-center justify-between">
-            <CardTitle class="text-lg">{groupName}</CardTitle>
-
-            <Badge variant="outline" class="text-xs">
-              {#if group.type === 'local'}
-                <Terminal class="w-3 h-3 mr-1" />
+    <div class="space-y-3">
+      <h3 class="font-semibold">Commands for {$selectedVM.name}</h3>
+      {#each vmCommands as command}
+        <Button
+          variant="outline"
+          size="sm"
+          class="w-full justify-start h-auto p-3"
+          disabled={isExecuting}
+          onclick={() => executeCommand(command)}
+        >
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+              {#if isExecuting && jobService.currentJob?.command === command.cmd}
+                <Loader2 class="w-4 h-4 animate-spin" />
               {:else}
-                <span class="mr-1">🔗</span>
+                <Play class="w-4 h-4" />
               {/if}
-              {group.type || 'unknown'}
-            </Badge>
+              <span class="font-medium">{command.name}</span>
+            </div>
+            {#if command.description}
+              <span class="text-xs text-muted-foreground">{command.description}</span>
+            {/if}
           </div>
-
-          {#if group.description}
-            <CardDescription>{group.description}</CardDescription>
-          {/if}
-        </CardHeader>
-
-        <CardContent class="pt-0">
-          <div class="space-y-2">
-            {#each group.commands ?? [] as cmd}
-              <Button
-                variant="outline"
-                size="sm"
-                class="w-full justify-start h-auto p-3"
-                disabled={isExecuting}
-                on:click={() => executeCommand(groupName, cmd.name)}
-              >
-                <div class="flex items-center justify-between w-full">
-                  <div class="flex items-center gap-2">
-                    {#if isExecuting && currentJob?.command === cmd.cmd}
-                      <Loader2 class="w-4 h-4 animate-spin" />
-                    {:else}
-                      <Play class="w-4 h-4" />
-                    {/if}
-                    <span class="font-medium">{cmd.name}</span>
-                  </div>
-                  <span class="text-xs text-muted-foreground">{cmd.description}</span>
-                </div>
-              </Button>
-            {/each}
-          </div>
-        </CardContent>
-      </Card>
-    {/each}
-  {/if}
-
-  {#if isExecuting}
-    <Card class="border-orange-200 bg-orange-50">
-      <CardContent class="pt-4">
-        <div class="flex items-center gap-2 text-orange-700">
-          <Loader2 class="w-4 h-4 animate-spin" />
-          <span class="font-medium">Executing:</span>
-          <code class="text-sm">{currentJob.command}</code>
-        </div>
-      </CardContent>
-    </Card>
+        </Button>
+      {/each}
+    </div>
   {/if}
 </div>

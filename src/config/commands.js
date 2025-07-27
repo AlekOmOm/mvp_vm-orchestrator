@@ -52,16 +52,16 @@ export const DEFAULT_COMMANDS = {
       cmd: 'docker ps || echo "Docker not available"',
       description: "List running Docker containers",
    },
-   "prometheus-status": {
+   "docker-status": {
       type: COMMAND_TYPES.SSH,
-      cmd: "docker ps | grep prometheus",
-      hostAlias: "prometheus",
-      description: "Check Prometheus container status",
+      cmd: "docker ps | grep <container-name>",
+      hostAlias: "<host-alias>",
+      description: "Check container status",
    },
    "system-info": {
       type: COMMAND_TYPES.SSH,
       cmd: "uname -a && df -h",
-      hostAlias: "prometheus",
+      hostAlias: "<host-alias>",
       description: "Show system information and disk usage",
    },
 };

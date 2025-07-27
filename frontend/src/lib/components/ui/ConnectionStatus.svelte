@@ -6,36 +6,54 @@
 -->
 
 <script>
-  import { derived } from 'svelte/store';
+  import { get } from 'svelte/store';
+  
+  import StatusBadge from './StatusBadge.svelte';
 
-  let { connectionStatus = null, size = 'sm', showText = true, className = '' } = $props();
+  let { connectionStatus = null, size = 'default', showText = true, className = '' } = $props();
 
-  // Size configurations
-  const sizeConfig = {
-    sm: {
-      dot: 'w-2 h-2',
-      text: 'text-sm'
-    },
-    md: {
-      dot: 'w-3 h-3',
-      text: 'text-base'
-    },
-    lg: {
-      dot: 'w-4 h-4',
-      text: 'text-lg'
-    }
-  };
+  let status = 'disconnected';
+  let badgeStatus = 'default';
+  let statusText = 'Unknown';
 
-  $: config = sizeConfig[size] || sizeConfig.sm;
-  $: status = connectionStatus ? $connectionStatus : 'disconnected';
-  $: isConnected = status === 'connected';
-  $: statusColor = isConnected ? 'bg-green-500' : 'bg-red-500';
-  $: statusText = status.charAt(0).toUpperCase() + status.slice(1);
+  $effect(() => {
+    const currentStatus = (connectionStatus && typeof connectionStatus.subscribe === 'function')
+      ? get(connectionStatus)
+      : (connectionStatus?.value ?? connectionStatus ?? 'disconnected');
+
+    status = currentStatus;
+    badgeStatus = currentStatus === 'connected' ? 'success'
+      : currentStatus === 'connecting' ? 'loading'
+      : currentStatus === 'disconnected' ? 'error'
+      : 'default';
+
+    statusText = currentStatus === 'connected' ? 'Connected'
+      : currentStatus === 'connecting' ? 'Connecting...'
+      : currentStatus === 'disconnected' ? 'Disconnected'
+      : 'Unknown';
+  });
 </script>
 
-<div class="flex items-center space-x-2 {className}">
-  <div class="{config.dot} rounded-full {statusColor}"></div>
+<StatusBadge
+  status={badgeStatus}
+  {size}
+  showIcon={true}
+  class={className}
+  
+>
   {#if showText}
-    <span class="{config.text} text-gray-600 capitalize">{statusText}</span>
+    {statusText}
   {/if}
-</div>
+</StatusBadge>
+
+<!--
+
+  let {
+    status = 'default', // 'success' | 'error' | 'warning' | 'info' | 'pending' | 'loading' | 'default'
+    size = 'default', // 'sm' | 'default' | 'lg'
+    showIcon = true,
+    class: className = '',
+    children,
+    ...restProps
+  } = $props();
+-->

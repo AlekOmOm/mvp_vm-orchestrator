@@ -3,6 +3,7 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 import path from "path";
 
 export default defineConfig({
+   root: "./src",
    plugins: [
       svelte({
          compilerOptions: {
@@ -13,6 +14,7 @@ export default defineConfig({
    resolve: {
       alias: {
          $lib: path.resolve("./src/lib"),
+         'lucide-svelte': '@lucide/svelte',
       },
    },
    css: {

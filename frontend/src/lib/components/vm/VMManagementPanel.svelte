@@ -1,114 +1,121 @@
 <!--
   VM Management Panel Component
-  
-  Focused component for VM management operations including:
+
+  Read-only VM management interface with auto-discovery:
   - VM sidebar navigation
-  - VM form dialogs
-  - VM CRUD operations
-  
-  Follows modular Svelte architecture with component composition.
+  - SSH host discovery
+  - Connection testing
+
+  VMs are auto-discovered from ~/.ssh/config
 -->
 
 <script>
   import { Button } from '$lib/components/ui/button';
-  import { Dialog, DialogContent, DialogHeader, DialogTitle } from '$lib/components/ui/dialog';
   import { Alert, AlertDescription } from '$lib/components/ui/alert';
-  import { Plus, AlertCircle } from 'lucide-svelte';
+  import { AlertCircle } from 'lucide-svelte';
+  import Panel from '$lib/components/ui/Panel.svelte';
+  import Modal from '$lib/components/ui/Modal.svelte';
+  import VMForm from './VMForm.svelte';
+  import CommandPanel from '../command/CommandPanel.svelte';
+  import AddCommandForm from '../command/AddCommandForm.svelte';
+  import { commandStore } from '../../stores/commandStore.js';
 
   // VM Components
   import VMSidebar from './VMSidebar.svelte';
-  import VMForm from './VMForm.svelte';
 
   // Stores
   import { vmStore, vms, selectedVM, vmLoading, vmError } from '../../stores/vmStore.js';
-  import { vmFormStore } from '../../stores/vmFormStore.js';
 
   // Props for event callbacks
   let {
     onvmselected = () => {},
-    onvmcreated = () => {},
-    onvmupdated = () => {}
+    onvmedited = () => {},
+    onvmdeleted = () => {},
+    onvmmanagecommands = () => {}
   } = $props();
 
-  // Local state for form dialog using Svelte 5 runes
-  let showVMForm = $state(false);
-  let editingVM = $state(null);
-  let formError = $state('');
-
-  // Reactive store subscriptions using derived
-  let vmFormState = $derived($vmFormStore);
+  let showEdit = $state(false);
+  let showCommands = $state(false);
+  let activeVM = $state(null);
+  let vmCommandsGrouped = $state({});
+  let commandsLoading = $state(false);
+  let showAddCommand = $state(false);
 
   /**
    * Handle VM selection from sidebar
    */
-  function handleVMSelect(event) {
-    const vm = event.detail;
+  function handleVMSelect(vm) {
     vmStore.selectVM(vm);
     onvmselected(vm);
   }
 
-  /**
-   * Show form for creating new VM
-   */
-  function showAddVMForm() {
-    editingVM = null;
-    showVMForm = true;
-    formError = '';
-    vmFormStore.showCreateForm();
+  function handleVMEdit(vm) {
+    activeVM = vm;
+    showEdit = true;
+    onvmedited(vm);
   }
 
-  /**
-   * Show form for editing existing VM
-   */
-  function showEditVMForm(vm) {
-    editingVM = vm;
-    showVMForm = true;
-    formError = '';
-    vmFormStore.showEditForm(vm);
+  function handleVMDelete(vm) {
+    console.log('Delete VM', vm);
+    onvmdeleted(vm);
   }
 
-  /**
-   * Handle VM form submission with proper event handling
-   */
-  async function handleVMFormSubmit(data) {
+  async function loadCommands(vm) {
     try {
-      const { vmData, isEdit } = data;
-
-      if (isEdit && editingVM) {
-        await vmStore.updateVM(editingVM.id, vmData);
-        onvmupdated({ vm: editingVM, updates: vmData });
-      } else {
-        const newVM = await vmStore.createVM(vmData);
-        onvmcreated(newVM);
-      }
-
-      // Close form on success
-      showVMForm = false;
-      editingVM = null;
-      formError = '';
-      vmFormStore.hideForm();
-    } catch (error) {
-      console.error('VM form submission failed:', error);
-      formError = error.message;
+      commandsLoading = true;
+      vmCommandsGrouped = {};
+      await commandStore.loadVMCommands(vm.id);
+      const list = commandStore.getCommandsForVM(vm.id);
+      const grouped = {};
+      list.forEach((cmd) => {
+        const group = cmd.group || 'general';
+        if (!grouped[group]) {
+          grouped[group] = { type: cmd.type || 'unknown', commands: [] };
+        }
+        grouped[group].commands.push(cmd);
+      });
+      vmCommandsGrouped = grouped;
+    } catch (e) {
+      console.error('Failed to load commands', e);
+      vmCommandsGrouped = {};
+    } finally {
+      commandsLoading = false;
     }
   }
 
-  /**
-   * Handle form cancellation
-   */
-  function handleVMFormCancel() {
-    showVMForm = false;
-    editingVM = null;
-    formError = '';
-    vmFormStore.hideForm();
+  function handleVMManageCommands(vm) {
+    activeVM = vm;
+    loadCommands(vm);
+    showCommands = true;
+    onvmmanagecommands(vm);
+  }
+
+  function handleAddCommand() {
+    showAddCommand = true;
+  }
+
+  async function handleCommandCreated() {
+    if (activeVM) {
+      await loadCommands(activeVM);
+    }
+  }
+
+  async function handleAddDefaults() {
+    // optional future implementation
+    console.log('Add default commands');
   }
 
   /**
-   * Handle VM edit request from sidebar
+   * Refresh VMs from SSH discovery
    */
-  function handleVMEdit(event) {
-    showEditVMForm(event.detail);
+  async function refreshVMs() {
+    try {
+      await vmStore.refreshVMs();
+    } catch (error) {
+      console.error('Failed to refresh VMs:', error);
+    }
   }
+
 
   /**
    * Clear VM error state
@@ -119,13 +126,15 @@
 </script>
 
 <!-- VM Management Panel -->
-<div class="vm-management-panel h-full flex flex-col">
-  <!-- Header with Add VM button -->
+<Panel variant="sidebar" class="h-full flex flex-col">
+  <!-- Header with Refresh button -->
   <div class="flex items-center justify-between p-4 border-b bg-white">
     <h2 class="text-lg font-semibold text-gray-900">Virtual Machines</h2>
-    <Button on:click={showAddVMForm} size="sm">
-      <Plus class="w-4 h-4 mr-2" />
-      Add VM
+    <Button on:click={refreshVMs} size="sm" variant="outline">
+      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+      </svg>
+      Refresh
     </Button>
   </div>
 
@@ -151,56 +160,57 @@
       selectedVM={$selectedVM}
       loading={$vmLoading}
       error={$vmError}
-      on:vm-select={handleVMSelect}
-      on:vm-edit={handleVMEdit}
+      onvmselect={handleVMSelect}
+      onvmedit={handleVMEdit}
+      onvmdelete={handleVMDelete}
+      onvmmanagecommands={handleVMManageCommands}
     />
   </div>
 
   <!-- Selected VM Info -->
   {#if $selectedVM}
     <div class="p-4 border-t bg-gray-50">
-      <div class="text-sm">
+      <div class="text-sm space-y-1">
         <div class="font-medium text-gray-900">Selected VM</div>
         <div class="text-gray-600">{$selectedVM.name}</div>
         <div class="text-xs text-gray-500 font-mono">
-          {$selectedVM.userName}@{$selectedVM.host}
+          {$selectedVM.user}@{$selectedVM.host}
+        </div>
+        {#if $selectedVM.cloudProvider}
+          <div class="text-xs text-blue-600">
+            {$selectedVM.cloudProvider}
+          </div>
+        {/if}
+        <div class="text-xs text-gray-400">
+          SSH Alias: {$selectedVM.alias}
         </div>
       </div>
     </div>
   {/if}
-</div>
+</Panel>
 
-<!-- VM Form Dialog -->
-<Dialog bind:open={showVMForm}>
-  <DialogContent class="sm:max-w-[600px]">
-    <DialogHeader>
-      <DialogTitle>
-        {editingVM ? 'Edit VM' : 'Add New VM'}
-      </DialogTitle>
-    </DialogHeader>
-    
-    <!-- Form Error Display -->
-    {#if formError}
-      <Alert variant="destructive">
-        <AlertCircle class="h-4 w-4" />
-        <AlertDescription>{formError}</AlertDescription>
-      </Alert>
-    {/if}
-    
-    <!-- VM Form -->
-    <VMForm
-      vm={editingVM}
-      loading={vmFormState.loading}
-      error={vmFormState.error}
-      onsubmit={handleVMFormSubmit}
-      oncancel={handleVMFormCancel}
-    />
-  </DialogContent>
-</Dialog>
+<Modal isOpen={showEdit} title="Edit VM" onClose={() => (showEdit = false)}>
+  <div class="p-6">
+    <VMForm vm={activeVM} onsubmit={() => (showEdit = false)} oncancel={() => (showEdit = false)} />
+  </div>
+</Modal>
 
-<style>
-  .vm-management-panel {
-    min-width: 300px;
-    max-width: 400px;
-  }
-</style>
+<Modal isOpen={showCommands} title="Commands" size="lg" onClose={() => (showCommands = false)}>
+  <CommandPanel
+    commands={vmCommandsGrouped}
+    loading={commandsLoading}
+    vmName={activeVM?.name}
+    onexecute={() => {}}
+    onaddcommand={handleAddCommand}
+    onadddefaults={handleAddDefaults}
+  />
+</Modal>
+
+<AddCommandForm
+  isOpen={showAddCommand}
+  onclose={() => (showAddCommand = false)}
+  oncommandcreated={handleCommandCreated}
+/>
+
+
+

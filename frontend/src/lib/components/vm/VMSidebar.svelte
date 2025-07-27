@@ -6,58 +6,77 @@
 -->
 
 <script>
-  import { createEventDispatcher } from 'svelte';
   import { Button } from '$lib/components/ui/button';
   import { Alert, AlertDescription } from '$lib/components/ui/alert';
   import { Loader2, Settings, AlertCircle } from 'lucide-svelte';
+  import VM from './VM.svelte';
 
-   let vms = [];
-   let selectedVM = null;
-   let loading = false;
-   let error = null;
+  // Props using Svelte 5 runes
+  let {
+    vms = [],
+    selectedVM = null,
+    loading = false,
+    error = null,
+    onvmselect = () => {},
+    onvmedit = () => {},
+    onvmdelete = () => {},
+    onvmmanagecommands = () => {}
+  } = $props();
 
-  const dispatch = createEventDispatcher();
-
-  function handleVMSelect(vm) {
-    dispatch('vm-select', vm);
-  }
-
-  function handleVMEdit(vm) {
-    dispatch('vm-edit', vm);
-  }
 </script>
 
-<aside class="w-64 bg-white border-r border-gray-200 overflow-y-auto">
+<aside class="w-full h-full bg-background border-r border-border overflow-y-auto">
   <!-- VM List -->
-  <div class="p-4">
-    <h3 class="text-sm font-medium text-gray-900 mb-3">Virtual Machines</h3>
-    
+  <div class="p-2">
     {#if loading}
       <div class="flex items-center justify-center py-4">
-        <Loader2 class="w-4 h-4 animate-spin" />
+        <Loader2 class="w-4 h-4 animate-spin text-muted-foreground" />
+        <span class="ml-2 text-xs text-muted-foreground">Loading VMs...</span>
       </div>
     {:else if vms.length === 0}
-      <p class="text-sm text-gray-500">No VMs configured</p>
+      <div class="text-center py-4">
+        <p class="text-xs text-muted-foreground">No VMs configured</p>
+        <p class="text-[10px] text-muted-foreground mt-1">VMs will appear here when discovered</p>
+      </div>
     {:else}
-      <div class="space-y-2">
+      <div class="space-y-1">
         {#each vms as vm}
-          <div class="p-2 rounded border {selectedVM?.id === vm.id ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'}">
-            <div class="flex items-center justify-between">
-              <button 
-                class="flex-1 text-left"
-                on:click={() => handleVMSelect(vm)}
-              >
-                <div class="font-medium text-sm">{vm.name}</div>
-                <div class="text-xs text-gray-500">{vm.host}</div>
-              </button>
-              
-              <div class="flex space-x-1">
-                <Button variant="ghost" size="sm" on:click={() => handleVMEdit(vm)}>
-                  <Settings class="w-3 h-3" />
-                </Button>
-              </div>
-            </div>
-          </div>
+          <VM
+            vm={vm}
+            isSelected={selectedVM?.id === vm.id}
+            onselect={onvmselect}
+            onedit={onvmedit}
+            ondelete={onvmdelete}
+            onmanagecommands={onvmmanagecommands}
+          />
+          
+          <!-- <div class="flex items-center justify-between">
+                <div class="min-w-0 flex-1">
+                  <div class="font-medium text-sm truncate">{vm.name}</div>
+                  <div class="text-xs text-muted-foreground truncate font-mono">
+                    {vm.user}@{vm.host}
+                  </div>
+                  {#if vm.environment}
+                    <div class="text-xs text-muted-foreground mt-1 capitalize">
+                      {vm.environment}
+                    </div>
+                  {/if}
+                </div>
+
+                <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      handleVMEdit(vm);
+                    }}
+                    class="h-6 w-6 p-0"
+                  >
+                    <Settings class="w-3 h-3" />
+                  </Button>
+                </div>
+              </div> -->
         {/each}
       </div>
     {/if}

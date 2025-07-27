@@ -6,7 +6,6 @@
 -->
 
 <script>
-  import { createEventDispatcher } from 'svelte';
   import { Button } from '$lib/components/ui/button';
   import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
   import { Badge } from '$lib/components/ui/badge';
@@ -16,9 +15,15 @@
   import { Select } from '$lib/components/ui/select';
   import { Save, X, Loader2 } from 'lucide-svelte';
 
-  let { command = null, vmId = null, loading = false, oncreate, onupdate, oncancel } = $props();
-
-  const dispatch = createEventDispatcher();
+  let {
+    command = null,
+    vmId = null,
+    loading = false,
+    oncreate = () => {},
+    onupdate = () => {},
+    oncancel = () => {},
+    ondelete = () => {}
+  } = $props();
 
   // Form data
   let formData = {
@@ -30,15 +35,25 @@
   };
 
   // Initialize form data when command prop changes
-  $: if (command) {
-    formData = {
-      name: command.name || '',
-      cmd: command.cmd || '',
-      type: command.type || 'stream',
-      description: command.description || '',
-      timeout: command.timeout || 30000
-    };
-  }
+  $effect(() => {
+    if (command) {
+      formData = {
+        name: command.name || '',
+        cmd: command.cmd || '',
+        type: command.type || 'stream',
+        description: command.description || '',
+        timeout: command.timeout || 30000
+      };
+    } else {
+      formData = {
+        name: '',
+        cmd: '',
+        type: 'stream',
+        description: '',
+        timeout: 30000
+      };
+    }
+  });
 
   // Form validation
   let errors = {};
@@ -67,17 +82,22 @@
 
   function handleSubmit() {
     if (!validateForm()) return;
-    
-    const eventType = command ? 'update' : 'create';
-    const payload = command 
-      ? { id: command.id, updates: formData }
-      : { vmId, ...formData };
-    
-    dispatch(eventType, payload);
+
+    if (command) {
+      onupdate({ id: command.id, updates: formData });
+    } else {
+      oncreate({ vmId, ...formData });
+    }
   }
 
   function handleCancel() {
-    dispatch('cancel');
+    oncancel();
+  }
+
+  function handleDelete() {
+    if (command && confirm(`Are you sure you want to delete command "${command.name}"? This action cannot be undone.`)) {
+      ondelete(command);
+    }
   }
 
   // Command type options

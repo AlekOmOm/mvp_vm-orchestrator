@@ -1,72 +1,40 @@
-<!--
-  Command Component
-  
-  Displays a single command with its details and action buttons.
-  Supports execution, editing, and deletion operations.
--->
-
 <script>
-  import { createEventDispatcher } from 'svelte';
-  import { Button } from '$lib/components/ui/button';
-  import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
-  import { Badge } from '$lib/components/ui/badge';
-  import { 
-    Terminal, 
-    Edit, 
-    Trash2, 
-    Play, 
-    Loader2,
-    Code,
-    Zap
-  } from 'lucide-svelte';
+import { Button } from '$lib/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
+import { Badge } from '$lib/components/ui/badge';
+import { Terminal, Edit, Trash2, Play, Loader2, Code, Zap } from 'lucide-svelte';
 
-  let { command, isExecuting = false, isCurrentCommand = false, onexecute, onedit, ondelete } = $props();
+let { command, isExecuting = false, isCurrentCommand = false, onexecute, onedit, ondelete } = $props();
 
-  const dispatch = createEventDispatcher();
+function handleExecute() { onexecute?.(command); }
+function handleEdit() { onedit?.(command); }
+function handleDelete() { ondelete?.(command); }
 
-  function handleExecute() {
-    dispatch('execute', command);
-  }
+let typeConfig = {
+  stream: { icon: Code, variant: 'default', description: 'Streaming output' },
+  ssh: { icon: Terminal, variant: 'secondary', description: 'SSH execution' },
+  terminal: { icon: Zap, variant: 'outline', description: 'Terminal spawn' }
+}[command.type] || { icon: Code, variant: 'outline', description: 'Unknown type' };
 
-  function handleEdit() {
-    dispatch('edit', command);
-  }
-
-  function handleDelete() {
-    dispatch('delete', command);
-  }
-
-  // Get command type icon and variant
-  $: typeConfig = {
-    'stream': { icon: Code, variant: 'default', description: 'Streaming output' },
-    'ssh': { icon: Terminal, variant: 'secondary', description: 'SSH execution' },
-    'terminal': { icon: Zap, variant: 'outline', description: 'Terminal spawn' }
-  }[command.type] || { icon: Code, variant: 'outline', description: 'Unknown type' };
-
-  // Format creation date
-  $: createdDate = new Date(command.createdAt).toLocaleDateString();
-
-  // Truncate long commands for display
-  $: displayCmd = command.cmd.length > 50 
-    ? command.cmd.substring(0, 50) + '...' 
-    : command.cmd;
+let createdDate = new Date(command.createdAt).toLocaleDateString();
+let displayCmd = command.cmd.length > 50 ? command.cmd.substring(0, 50) + '...' : command.cmd;
 </script>
 
-<Card class="transition-all duration-200 {isCurrentCommand ? 'ring-2 ring-orange-500 border-orange-500' : 'hover:shadow-md'}">
-  <CardHeader class="pb-3">
-    <div class="flex items-start justify-between">
+<Card class="w-full max-w-[400px] transition-all duration-200 {isCurrentCommand ? 'ring-2 ring-orange-500 border-orange-500' : 'hover:shadow-md'}">
+  <CardHeader class="pb-3 w-full">
+    <div class="flex items-start justify-between w-full max-w-full overflow-hidden">
       <div class="flex items-center gap-3">
         <div class="p-2 bg-primary/10 rounded-lg">
-          <svelte:component this={typeConfig.icon} class="w-4 h-4 text-primary" />
+          <typeConfig.icon class="w-4 h-4 text-primary" />
         </div>
         <div class="min-w-0 flex-1">
-          <CardTitle class="text-base flex items-center gap-2">
-            {command.name}
+          <CardTitle class="text-base flex flex-wrap items-center gap-2">
+            <span class="break-all">{command.name}</span>
             {#if isCurrentCommand}
               <Loader2 class="w-3 h-3 animate-spin text-orange-600" />
             {/if}
           </CardTitle>
-          <p class="text-xs text-muted-foreground mt-1 font-mono truncate">
+          <p class="text-xs text-muted-foreground mt-1 font-mono break-all max-w-full whitespace-normal">
             {displayCmd}
           </p>
         </div>
@@ -78,63 +46,42 @@
   </CardHeader>
 
   <CardContent class="space-y-3">
-    <!-- Command Details -->
     {#if command.description}
       <p class="text-sm text-muted-foreground">{command.description}</p>
     {/if}
 
-    <!-- Full command (expandable for long commands) -->
     {#if command.cmd.length > 50}
       <details class="text-xs">
-        <summary class="cursor-pointer text-muted-foreground hover:text-foreground">
-          View full command
-        </summary>
+        <summary class="cursor-pointer text-muted-foreground hover:text-foreground">View full command</summary>
         <pre class="mt-2 p-2 bg-muted rounded text-xs font-mono whitespace-pre-wrap break-all">{command.cmd}</pre>
       </details>
     {/if}
 
-    <!-- Metadata -->
     <div class="flex items-center justify-between text-xs text-muted-foreground">
-      <span>Created: {createdDate}</span>
-      <span class="capitalize">{typeConfig.description}</span>
+      <div class="flex items-center gap-2">
+        <span>Created: {createdDate}</span>
+        <span class="capitalize">{typeConfig.description}</span>
+      </div>
     </div>
 
-    <!-- Action Buttons -->
     <div class="flex gap-2 pt-2 border-t">
-      <Button
-        variant={isCurrentCommand ? "secondary" : "default"}
-        size="sm"
-        onclick={handleExecute}
-        disabled={isExecuting}
-        class="flex-1"
-      >
+      <Button variant={isCurrentCommand ? 'secondary' : 'default'} size="sm" onclick={handleExecute} disabled={isExecuting} class="flex-1">
         {#if isCurrentCommand}
-          <Loader2 class="w-3 h-3 mr-1 animate-spin" />
-          Running
+          <Loader2 class="w-3 h-3 mr-1 animate-spin" /> Running
         {:else}
-          <Play class="w-3 h-3 mr-1" />
-          Execute
+          <Play class="w-3 h-3 mr-1" /> Execute
         {/if}
       </Button>
 
-      <Button
-        variant="outline"
-        size="sm"
-        onclick={handleEdit}
-        disabled={isExecuting}
-      >
+      <Button variant="outline" size="sm" onclick={handleEdit} disabled={isExecuting}>
         <Edit class="w-3 h-3" />
       </Button>
 
-      <Button
-        variant="outline"
-        size="sm"
-        onclick={handleDelete}
-        disabled={isExecuting}
-        class="text-destructive hover:text-destructive"
-      >
+      <Button variant="outline" size="sm" onclick={handleDelete} disabled={isExecuting} class="text-destructive hover:text-destructive">
         <Trash2 class="w-3 h-3" />
       </Button>
     </div>
   </CardContent>
 </Card>
+
+

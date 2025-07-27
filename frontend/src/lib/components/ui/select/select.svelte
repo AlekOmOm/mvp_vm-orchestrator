@@ -1,7 +1,7 @@
 <script>
   import { cn } from "$lib/utils.js";
 
-  let { className, value = "", disabled = false, id = undefined, name = undefined, ...restProps } = $props();
+  let { className, value = "", disabled = false, id, name, children, ...restProps } = $props();
 </script>
 
 <select
@@ -14,9 +14,6 @@
     className
   )}
   {...restProps}
-  on:blur
-  on:change
-  on:focus
 >
-  <slot />
+  {@render children()}
 </select>

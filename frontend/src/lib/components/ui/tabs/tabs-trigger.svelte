@@ -10,7 +10,7 @@
     activeTab.set(value);
   }
 
-  $: isActive = $activeTab === value;
+  const isActive = $derived($activeTab === value);
 </script>
 
 <button
@@ -21,7 +21,7 @@
     className
   )}
   on:click={handleClick}
-  {...$$restProps}
+  {...restProps}
 >
   <slot />
 </button>
