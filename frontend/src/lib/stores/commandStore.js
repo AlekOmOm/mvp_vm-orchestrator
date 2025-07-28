@@ -10,7 +10,7 @@
 import { derived } from "svelte/store";
 import { createBaseStore, withLoadingState } from "./baseStore.js";
 import { getService } from "../core/ServiceContainer.js";
-import { selectedVM } from "./vmStore.js";
+import { createStoreFactory } from "./storeFactoryTemplate.js";
 
 /**
  * Create command store with enhanced base store functionality
@@ -51,24 +51,22 @@ function createCommandStore() {
                const commandService = getService("commandService");
                const vmService = getService("vmService");
 
-               console.log('🔍 Loading commands for VM ID:', vmId);
+               console.log("🔍 Loading commands for VM ID:", vmId);
 
                // Resolve to backend UUID if necessary
                const backendVM = await vmService.ensureRegistered(vmId);
-               const vmCommands = await commandService.listVMCommands(backendVM.id);
-               console.log('📋 Commands loaded:', vmCommands);
-
-               baseStore.updateWithLoading(
-                  (state) => ({
-                     ...state,
-                     vmCommands,
-                     commandsByVM: {
-                        ...state.commandsByVM,
-                        [vmId]: vmCommands,
-                     },
-                  }),
-                  false
+               const vmCommands = await commandService.listVMCommands(
+                  backendVM.id
                );
+               console.log("📋 Commands loaded:", vmCommands);
+
+               baseStore.setState({
+                  vmCommands,
+                  commandsByVM: {
+                     ...baseStore.getValue().commandsByVM,
+                     [vmId]: vmCommands,
+                  },
+               });
 
                return vmCommands;
             },
@@ -86,13 +84,10 @@ function createCommandStore() {
                const commandService = getService("commandService");
                const availableTemplates = await commandService.getTemplates();
 
-               baseStore.updateWithLoading(
-                  (state) => ({
-                     ...state,
-                     availableTemplates,
-                  }),
-                  false
-               );
+               baseStore.update((state) => ({
+                  ...state,
+                  availableTemplates,
+               }));
 
                return availableTemplates;
             },
@@ -115,9 +110,12 @@ function createCommandStore() {
                const vmService = getService("vmService");
                // Ensure VM is registered and obtain backend id (uuid)
                const backendVM = await vmService.ensureRegistered(vmId);
-               const newCommand = await commandService.createCommand(backendVM.id, commandData);
+               const newCommand = await commandService.createCommand(
+                  backendVM.id,
+                  commandData
+               );
 
-               baseStore.updateWithLoading((state) => {
+               baseStore.update((state) => {
                   const vmCommands = state.commandsByVM[vmId] || [];
                   const updatedCommands = [...vmCommands, newCommand];
 
@@ -129,7 +127,7 @@ function createCommandStore() {
                         [vmId]: updatedCommands,
                      },
                   };
-               }, false);
+               });
 
                return newCommand;
             },
@@ -147,9 +145,12 @@ function createCommandStore() {
             baseStore,
             async () => {
                const commandService = getService("commandService");
-               const updatedCommand = await commandService.updateCommand(commandId, updates);
+               const updatedCommand = await commandService.updateCommand(
+                  commandId,
+                  updates
+               );
 
-               baseStore.updateWithLoading((state) => {
+               baseStore.update((state) => {
                   // Update in main vmCommands array
                   const updatedVMCommands = state.vmCommands.map((cmd) =>
                      cmd.id === commandId ? updatedCommand : cmd
@@ -168,7 +169,7 @@ function createCommandStore() {
                      vmCommands: updatedVMCommands,
                      commandsByVM: updatedCommandsByVM,
                   };
-               }, false);
+               });
 
                return updatedCommand;
             },
@@ -187,7 +188,7 @@ function createCommandStore() {
                const commandService = getService("commandService");
                await commandService.deleteCommand(commandId);
 
-               baseStore.updateWithLoading((state) => {
+               baseStore.update((state) => {
                   // Remove from main vmCommands array
                   const filteredVMCommands = state.vmCommands.filter(
                      (cmd) => cmd.id !== commandId
@@ -206,7 +207,7 @@ function createCommandStore() {
                      vmCommands: filteredVMCommands,
                      commandsByVM: updatedCommandsByVM,
                   };
-               }, false);
+               });
             },
             { operationName: "deleteCommand", logOperation: true }
          );
@@ -244,75 +245,136 @@ function createCommandStore() {
    };
 }
 
-// Create and export the store instance
-export const commandStore = createCommandStore();
+// ❌ REMOVED: Singleton store exports - use factory pattern via StoresContainer instead
+// Components should access stores via: await storesContainer.get('commandStore')
 
-// Derived stores for convenience
-export const vmCommands = derived(
-   commandStore,
-   ($commandStore) => $commandStore.vmCommands
-);
+const initialState = {
+   vmCommands: [],
+   commandsByVM: {},
+   availableTemplates: {},
+   loading: false,
+   error: null,
+};
 
-export const availableTemplates = derived(
-   commandStore,
-   ($commandStore) => $commandStore.availableTemplates
-);
+function commandStoreLogic(baseStore, dependencies) {
+   const { commandService, vmService } = dependencies;
 
-export const commandLoading = derived(
-   commandStore,
-   ($commandStore) => $commandStore.loading
-);
-export const commandError = derived(
-   commandStore,
-   ($commandStore) => $commandStore.error
-);
+   return {
+      async loadVMCommands(vmId) {
+         if (!vmId) return;
+         return withLoadingState(baseStore, async () => {
+            const backendVM = await vmService.ensureRegistered(vmId);
+            const vmCommands = await commandService.listVMCommands(
+               backendVM.id
+            );
+            baseStore.setState({
+               vmCommands,
+               commandsByVM: {
+                  ...baseStore.getValue().commandsByVM,
+                  [vmId]: vmCommands,
+               },
+            });
+            return vmCommands;
+         });
+      },
 
-// Derived store for current VM commands
-export const currentVMCommands = derived(
-   [commandStore, selectedVM],
-   ([$commandStore, $selectedVM]) => {
-      if (!$selectedVM) return [];
-      return $commandStore.commandsByVM[$selectedVM.id] || [];
-   }
-);
+      async loadAvailableTemplates() {
+         return withLoadingState(baseStore, async () => {
+            const availableTemplates = await commandService.getTemplates();
+            baseStore.update((state) => ({ ...state, availableTemplates }));
+            return availableTemplates;
+         });
+      },
 
-// Additional derived stores for VM commands
-export const vmCommandsByType = derived(vmCommands, ($vmCommands) => {
-   const grouped = {};
-   $vmCommands.forEach((cmd) => {
-      const type = cmd.type || "general";
-      if (!grouped[type]) {
-         grouped[type] = [];
-      }
-      grouped[type].push(cmd);
-   });
-   return grouped;
-});
+      async createCommand(vmId, commandData) {
+         if (!vmId) throw new Error("VM ID is required");
+         return withLoadingState(baseStore, async () => {
+            const backendVM = await vmService.ensureRegistered(vmId);
+            const newCommand = await commandService.createCommand(
+               backendVM.id,
+               commandData
+            );
+            baseStore.update((state) => {
+               const vmCommands = state.commandsByVM[vmId] || [];
+               return {
+                  ...state,
+                  vmCommands: state.vmCommands.concat(newCommand),
+                  commandsByVM: {
+                     ...state.commandsByVM,
+                     [vmId]: [...vmCommands, newCommand],
+                  },
+               };
+            });
+            return newCommand;
+         });
+      },
 
-export const hasVMCommands = derived(
-   vmCommands,
-   ($vmCommands) => $vmCommands.length > 0
-);
-export const vmCommandCount = derived(
-   vmCommands,
-   ($vmCommands) => $vmCommands.length
-);
+      async updateCommand(commandId, updates) {
+         return withLoadingState(baseStore, async () => {
+            const updatedCommand = await commandService.updateCommand(
+               commandId,
+               updates
+            );
+            baseStore.update((state) => {
+               const updatedVMCommands = state.vmCommands.map((c) =>
+                  c.id === commandId ? updatedCommand : c
+               );
+               const updatedByVM = { ...state.commandsByVM };
+               Object.keys(updatedByVM).forEach((id) => {
+                  updatedByVM[id] = updatedByVM[id].map((c) =>
+                     c.id === commandId ? updatedCommand : c
+                  );
+               });
+               return {
+                  ...state,
+                  vmCommands: updatedVMCommands,
+                  commandsByVM: updatedByVM,
+               };
+            });
+            return updatedCommand;
+         });
+      },
 
-// Derived stores for available templates
-export const availableTemplatesArray = derived(
-   availableTemplates,
-   ($templates) => {
-      return Object.entries($templates).map(([key, config]) => ({
-         id: key,
-         name: key,
-         cmd: config.cmd,
-         type: config.type,
-         description: config.description,
-         hostAlias: config.hostAlias,
-         timeout: config.timeout || 30000,
-      }));
-   }
-);
+      async deleteCommand(commandId) {
+         return withLoadingState(baseStore, async () => {
+            await commandService.deleteCommand(commandId);
+            baseStore.update((state) => {
+               const filtered = state.vmCommands.filter(
+                  (c) => c.id !== commandId
+               );
+               const updatedByVM = { ...state.commandsByVM };
+               Object.keys(updatedByVM).forEach((id) => {
+                  updatedByVM[id] = updatedByVM[id].filter(
+                     (c) => c.id !== commandId
+                  );
+               });
+               return {
+                  ...state,
+                  vmCommands: filtered,
+                  commandsByVM: updatedByVM,
+               };
+            });
+         });
+      },
 
-// Legacy export for backward compatibility (will be removed)
-export const commands = vmCommands;
+      getCommandsForVM(vmId) {
+         const state = baseStore.getValue();
+         return state.commandsByVM[vmId] || [];
+      },
+
+      getCommandById(commandId) {
+         const state = baseStore.getValue();
+         return state.vmCommands.find((c) => c.id === commandId) || null;
+      },
+
+      clearCommands() {
+         baseStore.setState({ vmCommands: [], commandsByVM: {} });
+      },
+   };
+}
+
+export const createCommandStoreFactory = createStoreFactory(
+   "CommandStore",
+   initialState,
+   commandStoreLogic
+);

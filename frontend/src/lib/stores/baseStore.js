@@ -18,7 +18,7 @@ import { writable, derived } from "svelte/store";
  * @param {Object} options - Configuration options
  * @returns {Object} Store with common methods
  */
-export function createBaseStore(initialState, options = {}) {
+export function createBaseStore(initialState, options = {}, dependencies = {}) {
    const { name = "BaseStore", enableLogging = false } = options;
 
    // Core writable store
@@ -31,9 +31,22 @@ export function createBaseStore(initialState, options = {}) {
       }
    }
 
+   function getDependency(depName) {
+      if (!(depName in dependencies)) {
+         throw new Error(`[${name}] dependency '${depName}' not provided`);
+      }
+      return dependencies[depName];
+   }
+
    return {
       subscribe,
       update, // Expose raw update method for direct state updates
+
+      /**
+       * Access injected dependency
+       * @param {string} depName
+       */
+      getDependency,
 
       /**
        * Set loading state
@@ -79,26 +92,6 @@ export function createBaseStore(initialState, options = {}) {
             loading,
             error: errorMessage,
          }));
-      },
-
-      /**
-       * Update state with loading management
-       * @param {Function} updateFn - Function to update state
-       * @param {boolean} setLoading - Whether to manage loading state
-       */
-      updateWithLoading(updateFn, setLoading = true) {
-         if (setLoading) {
-            this.setLoading(true);
-         }
-
-         try {
-            update((state) => {
-               const newState = updateFn(state);
-               return setLoading ? { ...newState, loading: false } : newState;
-            });
-         } catch (error) {
-            this.setError(error);
-         }
       },
 
       /**
@@ -207,7 +200,7 @@ export function createCollectionStore(initialItems = [], options = {}) {
    };
 
    const baseStore = createBaseStore(initialState, options);
-   const { subscribe, updateWithLoading } = baseStore;
+   const { subscribe, update } = baseStore;
 
    return {
       ...baseStore,
@@ -217,13 +210,10 @@ export function createCollectionStore(initialItems = [], options = {}) {
        * @param {*} item - Item to add
        */
       addItem(item) {
-         updateWithLoading(
-            (state) => ({
-               ...state,
-               items: [...state.items, item],
-            }),
-            false
-         );
+         update((state) => ({
+            ...state,
+            items: [...state.items, item],
+         }));
       },
 
       /**
@@ -236,13 +226,10 @@ export function createCollectionStore(initialItems = [], options = {}) {
                ? (item) => !predicate(item)
                : (item) => item !== predicate;
 
-         updateWithLoading(
-            (state) => ({
-               ...state,
-               items: state.items.filter(filterFn),
-            }),
-            false
-         );
+         update((state) => ({
+            ...state,
+            items: state.items.filter(filterFn),
+         }));
       },
 
       /**
@@ -251,20 +238,15 @@ export function createCollectionStore(initialItems = [], options = {}) {
        * @param {Object|Function} updates - Updates to apply
        */
       updateItem(predicate, updates) {
-         updateWithLoading(
-            (state) => ({
-               ...state,
-               items: state.items.map((item) => {
-                  if (predicate(item)) {
-                     return typeof updates === "function"
-                        ? updates(item)
-                        : { ...item, ...updates };
-                  }
-                  return item;
-               }),
+         update((state) => ({
+            ...state,
+            items: state.items.map((item) => {
+               if (predicate(item)) {
+                  return typeof updates === "function" ? updates(item) : { ...item, ...updates };
+               }
+               return item;
             }),
-            false
-         );
+         }));
       },
 
       /**
@@ -272,13 +254,10 @@ export function createCollectionStore(initialItems = [], options = {}) {
        * @param {Array} items - New items array
        */
       setItems(items) {
-         updateWithLoading(
-            (state) => ({
-               ...state,
-               items: Array.isArray(items) ? items : [],
-            }),
-            false
-         );
+         update((state) => ({
+            ...state,
+            items: Array.isArray(items) ? items : [],
+         }));
       },
 
       /**

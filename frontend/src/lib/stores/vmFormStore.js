@@ -6,7 +6,8 @@
  */
 
 import { writable } from 'svelte/store';
-import { vmStore } from './vmStore.js';
+import { storesContainer } from './StoresContainer.js';
+let vmStore;
 
 /**
  * Create VM form store with state management
@@ -74,9 +75,11 @@ function createVMFormStore() {
           if (!editingVM) {
             throw new Error('No VM selected for editing');
           }
+          if (!vmStore) vmStore = await storesContainer.get('vmStore');
           result = await vmStore.updateVM(editingVM.id, vmData);
           console.log("✅ VM updated successfully");
         } else {
+          if (!vmStore) vmStore = await storesContainer.get('vmStore');
           result = await vmStore.createVM(vmData);
           console.log("✅ VM created successfully");
         }

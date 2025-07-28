@@ -18,110 +18,68 @@
   import VMForm from './VMForm.svelte';
   import CommandPanel from '../command/CommandPanel.svelte';
   import AddCommandForm from '../command/AddCommandForm.svelte';
-  import { commandStore } from '../../stores/commandStore.js';
+  import { onMount } from 'svelte';
+  import { storesContainer } from '../../stores/StoresContainer.js';
 
   // VM Components
   import VMSidebar from './VMSidebar.svelte';
 
-  // Stores
-  import { vmStore, vms, selectedVM, vmLoading, vmError } from '../../stores/vmStore.js';
+  // Component state
+  let vmStore;
+  let vms = $state([]);
+  let selectedVM = $state(null);
+  let vmLoading = $state(false);
+  let vmError = $state(null);
 
-  // Props for event callbacks
-  let {
-    onvmselected = () => {},
-    onvmedited = () => {},
-    onvmdeleted = () => {},
-    onvmmanagecommands = () => {}
-  } = $props();
+  onMount(async () => {
+    try {
+      vmStore = await storesContainer.get('vmStore');
 
-  let showEdit = $state(false);
-  let showCommands = $state(false);
-  let activeVM = $state(null);
-  let vmCommandsGrouped = $state({});
-  let commandsLoading = $state(false);
-  let showAddCommand = $state(false);
+      $effect(() => {
+        if (vmStore) {
+          const state = vmStore.getValue();
+          vms = state.vms;
+          selectedVM = state.selectedVM;
+          vmLoading = state.loading;
+          vmError = state.error;
+        }
+      });
 
-  /**
-   * Handle VM selection from sidebar
-   */
+      await vmStore.loadVMs();
+    } catch (error) {
+      console.error('Failed to initialize VM store:', error);
+      vmError = error.message;
+    }
+  });
+
+  // Form state
+  let showVMForm = $state(false);
+  let showCommandForm = $state(false);
+  
+  // Event handlers
   function handleVMSelect(vm) {
-    vmStore.selectVM(vm);
-    onvmselected(vm);
+    vmStore?.selectVM(vm);
   }
 
   function handleVMEdit(vm) {
-    activeVM = vm;
-    showEdit = true;
-    onvmedited(vm);
+    vmStore?.editVM(vm);
   }
 
   function handleVMDelete(vm) {
-    console.log('Delete VM', vm);
-    onvmdeleted(vm);
-  }
-
-  async function loadCommands(vm) {
-    try {
-      commandsLoading = true;
-      vmCommandsGrouped = {};
-      await commandStore.loadVMCommands(vm.id);
-      const list = commandStore.getCommandsForVM(vm.id);
-      const grouped = {};
-      list.forEach((cmd) => {
-        const group = cmd.group || 'general';
-        if (!grouped[group]) {
-          grouped[group] = { type: cmd.type || 'unknown', commands: [] };
-        }
-        grouped[group].commands.push(cmd);
-      });
-      vmCommandsGrouped = grouped;
-    } catch (e) {
-      console.error('Failed to load commands', e);
-      vmCommandsGrouped = {};
-    } finally {
-      commandsLoading = false;
-    }
+    vmStore?.deleteVM(vm);
   }
 
   function handleVMManageCommands(vm) {
-    activeVM = vm;
-    loadCommands(vm);
-    showCommands = true;
-    onvmmanagecommands(vm);
+    // TODO: Implement manage commands functionality
+    console.log('Manage commands for VM:', vm);
   }
 
-  function handleAddCommand() {
-    showAddCommand = true;
+  async function handleRefreshVMs() {
+    await vmStore?.loadVMs();
   }
 
-  async function handleCommandCreated() {
-    if (activeVM) {
-      await loadCommands(activeVM);
-    }
-  }
-
-  async function handleAddDefaults() {
-    // optional future implementation
-    console.log('Add default commands');
-  }
-
-  /**
-   * Refresh VMs from SSH discovery
-   */
-  async function refreshVMs() {
-    try {
-      await vmStore.refreshVMs();
-    } catch (error) {
-      console.error('Failed to refresh VMs:', error);
-    }
-  }
-
-
-  /**
-   * Clear VM error state
-   */
   function clearVMError() {
-    vmStore.clearError();
+    vmStore?.clearError();
   }
 </script>
 
@@ -130,7 +88,7 @@
   <!-- Header with Refresh button -->
   <div class="flex items-center justify-between p-4 border-b border-border bg-card">
     <h2 class="text-lg font-semibold text-card-foreground">Virtual Machines</h2>
-    <Button on:click={refreshVMs} size="sm" variant="outline">
+    <Button on:click={handleRefreshVMs} size="sm" variant="outline">
       <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
       </svg>
@@ -139,12 +97,12 @@
   </div>
 
   <!-- VM Error Display -->
-  {#if $vmError}
+  {#if vmError}
     <div class="p-4">
       <Alert variant="destructive">
         <AlertCircle class="h-4 w-4" />
         <AlertDescription>
-          {$vmError}
+          {vmError}
           <Button variant="outline" size="sm" on:click={clearVMError} class="ml-2">
             Dismiss
           </Button>
@@ -156,10 +114,10 @@
   <!-- VM Sidebar -->
   <div class="flex-1 overflow-hidden">
     <VMSidebar
-      vms={$vms}
-      selectedVM={$selectedVM}
-      loading={$vmLoading}
-      error={$vmError}
+      vms={vms}
+      selectedVM={selectedVM}
+      loading={vmLoading}
+      error={vmError}
       onvmselect={handleVMSelect}
       onvmedit={handleVMEdit}
       onvmdelete={handleVMDelete}
@@ -168,21 +126,21 @@
   </div>
 
   <!-- Selected VM Info -->
-  {#if $selectedVM}
+  {#if selectedVM}
     <div class="p-4 border-t border-border bg-muted">
       <div class="text-sm space-y-1">
         <div class="font-medium text-foreground">Selected VM</div>
-        <div class="text-muted-foreground">{$selectedVM.name}</div>
+        <div class="text-muted-foreground">{selectedVM.name}</div>
         <div class="text-xs text-muted-foreground font-mono">
-          {$selectedVM.user}@{$selectedVM.host}
+          {selectedVM.user}@{selectedVM.host}
         </div>
-        {#if $selectedVM.cloudProvider}
+        {#if selectedVM.cloudProvider}
           <div class="text-xs text-primary">
-            {$selectedVM.cloudProvider}
+            {selectedVM.cloudProvider}
           </div>
         {/if}
         <div class="text-xs text-muted-foreground">
-          SSH Alias: {$selectedVM.alias}
+          SSH Alias: {selectedVM.alias}
         </div>
       </div>
     </div>

@@ -11,7 +11,6 @@ export class VmsService {
     return await this.api.get(`/api/vms/${id}`);
   }
 
-  // ✅ ADD: Method to find VM by alias
   async getVMByAlias(alias) {
     const vms = await this.listVMs();
     const vm = vms.find(v => v.alias === alias || v.name === alias);

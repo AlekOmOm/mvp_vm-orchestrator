@@ -4,8 +4,10 @@
   import { Badge } from '$lib/components/ui/badge';
   import { Terminal, Play, Loader2, Plus } from 'lucide-svelte';
   import { getService } from '$lib/core/ServiceContainer.js';
-  import { selectedVM } from '../../stores/vmStore.js';
-  import { commandStore, currentVMCommands } from '../../stores/commandStore.js';
+  import { derived } from 'svelte/store';
+  import { storesContainer } from '../../stores/StoresContainer.js';
+  import { createVMDerivedStores } from '../../stores/vmStore.js';
+  import { onMount } from 'svelte';
 
   let {
     commands = {},
@@ -15,19 +17,33 @@
     onadddefaults = () => {}
   } = $props();
 
+  let commandStore;
+  let selectedVMStore;
+
+  onMount(async () => {
+    commandStore = await storesContainer.get('commandStore');
+    const vmStore = await storesContainer.get('vmStore');
+    const { selectedVM } = createVMDerivedStores(vmStore);
+    selectedVMStore = selectedVM;
+  });
+
   const commandExecutor = getService('commandExecutor');
   const jobService = getService('jobService');
 
   // ✅ FIX: Load commands when VM changes
   $effect(() => {
-    if ($selectedVM?.id) {
-      console.log('Loading commands for VM:', $selectedVM.id);
-      commandStore.loadVMCommands($selectedVM.id);
+    if ($selectedVMStore?.id) {
+      console.log('Loading commands for VM:', $selectedVMStore.id);
+      commandStore.loadVMCommands($selectedVMStore.id);
     }
   });
 
   // ✅ FIX: Use store commands instead of props
-  let vmCommands = $derived($currentVMCommands || []);
+  const vmCommandsStore = derived([commandStore, selectedVMStore], ([$cs, $vm]) => {
+    if (!$vm) return [];
+    return $cs.commandsByVM[$vm.id] || [];
+  });
+  let vmCommands = $derived($vmCommandsStore);
   const isExecutingStore = commandExecutor.getIsExecuting();
   let isExecuting = $derived($isExecutingStore);
   let isConnected = $derived(jobService.isConnected);
@@ -35,11 +51,11 @@
   console.log('CommandPanel - VM Commands:', vmCommands);
 
   async function executeCommand(command) {
-    if (isExecuting || !isConnected || !$selectedVM) return;
+    if (isExecuting || !isConnected || !$selectedVMStore) return;
 
     try {
-      await commandExecutor.executeCommand($selectedVM, command);
-      onexecute({ command, vm: $selectedVM });
+      await commandExecutor.executeCommand($selectedVMStore, command);
+      onexecute({ command, vm: $selectedVMStore });
     } catch (error) {
       console.error('Execution failed:', error);
     }
@@ -47,13 +63,13 @@
 </script>
 
 <div class="h-full overflow-y-auto p-4 space-y-4">
-  {#if !$selectedVM}
+  {#if !$selectedVMStore}
     <div class="text-center text-muted-foreground py-8">
       Select a VM to view commands
     </div>
   {:else if vmCommands.length === 0}
     <div class="flex flex-col items-center justify-center h-40 text-muted-foreground space-y-4">
-      <p>No commands for {$selectedVM.name} yet.</p>
+      <p>No commands for {$selectedVMStore.name} yet.</p>
       <div class="flex gap-2">
         <Button variant="outline" size="sm" onclick={onaddcommand}>
           <Plus class="w-3 h-3 mr-1" /> Add Command
@@ -65,7 +81,7 @@
     </div>
   {:else}
     <div class="space-y-3">
-      <h3 class="font-semibold">Commands for {$selectedVM.name}</h3>
+      <h3 class="font-semibold">Commands for {$selectedVMStore.name}</h3>
       {#each vmCommands as command}
         <Button
           variant="outline"

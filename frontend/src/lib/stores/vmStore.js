@@ -8,45 +8,32 @@
  * @fileoverview VM state management store with SSH auto-discovery
  */
 
-import { derived } from "svelte/store";
-import { createBaseStore, withLoadingState } from "./baseStore.js";
-import { getService } from "../core/ServiceContainer.js";
+import { derived } from 'svelte/store';
+import { createStoreFactory } from './storeFactoryTemplate.js';
+import { withLoadingState } from './baseStore.js';
+import { getService } from '../core/ServiceContainer.js';
 
-/**
- * Create VM store with enhanced base store functionality
- */
-function createVMStore() {
-   // Initial state
-   const initialState = {
-      vms: [],
-      selectedVM: null,
-      loading: false,
-      error: null,
-   };
+// New Factory Pattern Implementation
+const initialState = {
+   vms: [],
+   selectedVM: null,
+   loading: false,
+   error: null,
+};
 
-   // Create base store with logging enabled
-   const baseStore = createBaseStore(initialState, {
-      name: "VMStore",
-      enableLogging: true,
-   });
+function vmStoreLogic(baseStore, dependencies) {
+   const { vmService } = dependencies;
 
    return {
-      ...baseStore,
-
-      /**
-       * Load all VMs from API
-       */
       async loadVMs() {
          return withLoadingState(
             baseStore,
             async () => {
-               const vmService = getService("vmService");
                const vms = await vmService.loadVMs();
 
-               baseStore.updateWithLoading((state) => {
+               baseStore.update((state) => {
                   let selectedVM = null;
 
-                  // Keep current selected VM if it still exists
                   if (
                      state.selectedVM &&
                      vms.find((vm) => vm.id === state.selectedVM.id)
@@ -55,7 +42,6 @@ function createVMStore() {
                         (vm) => vm.id === state.selectedVM.id
                      );
                   } else {
-                     // Try to restore from localStorage
                      const lastSelectedVMId =
                         localStorage.getItem("lastSelectedVMId");
                      if (lastSelectedVMId) {
@@ -69,7 +55,7 @@ function createVMStore() {
                      vms,
                      selectedVM,
                   };
-               }, false);
+               });
 
                return vms;
             },
@@ -77,35 +63,22 @@ function createVMStore() {
          );
       },
 
-      /**
-       * Test SSH connection to a VM
-       * @param {string} alias - SSH host alias
-       */
       async testConnection(alias) {
          return withLoadingState(
             baseStore,
             async () => {
-               const vmService = getService("vmService");
                return await vmService.testConnection(alias);
             },
             { operationName: `testConnection(${alias})`, logOperation: true }
          );
       },
 
-      /**
-       * Refresh VM list (reload from SSH discovery)
-       */
       async refreshVMs() {
          return this.loadVMs();
       },
 
-      /**
-       * Select a VM
-       * @param {Object|null} vm - VM to select or null to deselect
-       */
       selectVM(vm) {
          baseStore.setState({ selectedVM: vm });
-         // Save to localStorage and update selection history
          if (vm) {
             localStorage.setItem("lastSelectedVMId", vm.id);
             this.updateSelectionHistory(vm.id);
@@ -114,10 +87,6 @@ function createVMStore() {
          }
       },
 
-      /**
-       * Update VM selection history in localStorage
-       * @param {string} vmId - VM ID to add to history
-       */
       updateSelectionHistory(vmId) {
          const historyKey = "vmSelectionHistory";
          let history = [];
@@ -129,22 +98,13 @@ function createVMStore() {
             history = [];
          }
 
-         // Remove existing entry if present
          history = history.filter((id) => id !== vmId);
-
-         // Add to front of array
          history.unshift(vmId);
-
-         // Keep only last 10 selections
          history = history.slice(0, 10);
 
          localStorage.setItem(historyKey, JSON.stringify(history));
       },
 
-      /**
-       * Get VM selection history from localStorage
-       * @returns {Array} Array of VM IDs in order of most recent selection
-       */
       getSelectionHistory() {
          try {
             const stored = localStorage.getItem("vmSelectionHistory");
@@ -154,57 +114,58 @@ function createVMStore() {
          }
       },
 
-      /**
-       * Get VM by ID
-       * @param {string} id - VM ID
-       * @returns {Object|null} VM object or null
-       */
       getVMById(id) {
          const state = baseStore.getValue();
          return state.vms.find((vm) => vm.id === id) || null;
       },
 
-      /**
-       * Filter VMs by environment
-       * @param {string} environment - Environment to filter by
-       * @returns {Array} Filtered VMs
-       */
       getVMsByEnvironment(environment) {
          const state = baseStore.getValue();
          return state.vms.filter((vm) => vm.environment === environment);
       },
+
+      /**
+       * Convenience helper triggered by UI when user wants to manage commands for a VM.
+       * Selects the VM and ensures its commands are loaded via commandStore.
+       * @param {Object} vm - VM object
+       */
+      async manageCommands(vm) {
+         if (!vm) return;
+         // Select VM first so rest of UI reacts
+         this.selectVM(vm);
+         try {
+           const { storesContainer } = await import('./StoresContainer.js');
+           const commandStore = await storesContainer.get('commandStore');
+           await commandStore.loadVMCommands(vm.id);
+         } catch (err) {
+           console.error('[vmStore] manageCommands failed:', err);
+         }
+      },
+
+      /**
+       * Placeholder for future VM editing functionality (currently read-only).
+       */
+      async editVM(/* vm */) {
+         console.warn('[vmStore] editVM is not supported for auto-discovered VMs');
+      },
+
+      /**
+       * Placeholder for future VM deletion functionality (currently read-only).
+       */
+      async deleteVM(/* vm */) {
+         console.warn('[vmStore] deleteVM is not supported for auto-discovered VMs');
+      },
    };
 }
+// Keep only the factory export
+export const createVMStoreFactory = createStoreFactory('VMStore', initialState, vmStoreLogic);
 
-// Create and export the store instance
-export const vmStore = createVMStore();
-
-// Derived stores for convenience
-export const vms = derived(vmStore, ($vmStore) => $vmStore.vms);
-export const selectedVM = derived(vmStore, ($vmStore) => $vmStore.selectedVM);
-export const vmLoading = derived(vmStore, ($vmStore) => $vmStore.loading);
-export const vmError = derived(vmStore, ($vmStore) => $vmStore.error);
-
-// Derived store for VM options (for dropdowns, etc.)
-export const vmOptions = derived(vms, ($vms) =>
-   $vms.map((vm) => ({
-      value: vm.id,
-      label: `${vm.name} (${vm.environment})`,
-      vm,
-   }))
-);
-
-// Additional derived stores
-export const vmsByEnvironment = derived(vms, ($vms) => {
-   const grouped = {};
-   $vms.forEach((vm) => {
-      if (!grouped[vm.environment]) {
-         grouped[vm.environment] = [];
-      }
-      grouped[vm.environment].push(vm);
-   });
-   return grouped;
-});
-
-export const hasVMs = derived(vms, ($vms) => $vms.length > 0);
-export const vmCount = derived(vms, ($vms) => $vms.length);
+// Add helper for creating derived stores from factory instances
+export function createVMDerivedStores(vmStoreInstance) {
+  return {
+    vms: derived(vmStoreInstance, ($store) => $store.vms),
+    selectedVM: derived(vmStoreInstance, ($store) => $store.selectedVM),
+    vmLoading: derived(vmStoreInstance, ($store) => $store.loading),
+    vmError: derived(vmStoreInstance, ($store) => $store.error)
+  };
+}

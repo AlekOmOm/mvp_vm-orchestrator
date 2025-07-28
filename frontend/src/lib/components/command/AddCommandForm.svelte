@@ -17,10 +17,49 @@
     Terminal,
     Loader2
   } from '@lucide/svelte';
+  import { onMount } from 'svelte';
+  import { storesContainer } from '../../stores/StoresContainer.js';
 
-  // Stores
-  import { selectedVM } from '../../stores/vmStore.js';
-  import { commandStore, availableTemplatesArray } from '../../stores/commandStore.js';
+  let vmStore;
+  let commandStore;
+  let selectedVM = $state(null);
+  let availableTemplatesArray = $state([]);
+
+  onMount(async () => {
+    try {
+      vmStore = await storesContainer.get('vmStore');
+      commandStore = await storesContainer.get('commandStore');
+
+      $effect(() => {
+        if (vmStore) {
+          const state = vmStore.getValue();
+          selectedVM = state.selectedVM;
+        }
+        if (commandStore) {
+          const state = commandStore.getValue();
+          availableTemplatesArray = Object.entries(state.availableTemplates).map(([key, config]) => ({
+            id: key,
+            name: key,
+            cmd: config.cmd,
+            type: config.type,
+            description: config.description,
+            hostAlias: config.hostAlias,
+            timeout: config.timeout || 30000,
+          }));
+        }
+      });
+
+      await vmStore.loadVMs();
+      await commandStore.loadAvailableTemplates();
+    } catch (error) {
+      console.error('Failed to initialize stores:', error);
+    }
+  });
+
+  // Form state
+  let showVMForm = $state(false);
+  let showCommandForm = $state(false);
+
 
   // Props
   let { 
@@ -40,12 +79,8 @@
   let isSubmitting = $state(false);
   let errorMessage = $state('');
 
-  // Load available templates when component mounts
-  $effect(() => {
-    if (isOpen) {
-      commandStore.loadAvailableTemplates();
-    }
-  });
+  // Templates are automatically loaded by the composable
+  // No need for manual loading
 
   function sanitizeCommand(cmd) {
     return cmd.split(/\r?\n/).map(line => line.trim()).filter(Boolean).join(' ').trim();
@@ -87,7 +122,7 @@
    */
   async function handleSubmit(event) {
     event.preventDefault();
-    if (!$selectedVM) {
+    if (!selectedVM) {
       errorMessage = 'Please select a VM first';
       return;
     }
@@ -110,9 +145,9 @@
       };
 
       console.log('Creating command:', commandData);
-      console.log('Selected VM:', $selectedVM);
+      console.log('Selected VM:', selectedVM);
 
-      await commandStore.createCommand($selectedVM.id, commandData);
+      await commandStore.createCommand(selectedVM.id, commandData);
 
       oncommandcreated();
       resetForm();

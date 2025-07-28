@@ -13,3 +13,7 @@
 
 # env
 !.env.sample
+
+
+frontend/src/dist/
+serverless/

@@ -1,35 +1,39 @@
 <script>
-  import { selectedVM } from '../../stores/vmStore.js';
-  import { commandStore, currentVMCommands } from '../../stores/commandStore.js';
+  import { onMount } from 'svelte';
+  import { storesContainer } from '../../stores/StoresContainer.js';
   import { getService } from '../../core/ServiceContainer.js';
 
-  const commandService = getService('commandService');
+  let vmStore;
+  let selectedVM = $state(null);
 
-  let debugInfo = $state({
-    selectedVM: null,
-    commands: [],
-    loading: false,
-    error: null
+  onMount(async () => {
+    vmStore = await storesContainer.get('vmStore');
+
+    $effect(() => {
+      if (vmStore) {
+        const state = vmStore.getValue();
+        selectedVM = state.selectedVM;
+      }
+    });
   });
 
-  $effect(() => {
-    debugInfo.selectedVM = $selectedVM;
-    debugInfo.commands = $currentVMCommands;
+  // Debug info derived from selected VM
+  let debugInfo = $derived({
+    selectedVM: selectedVM,
+    hasVM: !!selectedVM,
+    vmId: selectedVM?.id,
+    vmName: selectedVM?.name
   });
 
   async function testDirectAPI() {
-    if (!$selectedVM) return;
-    
+    if (!selectedVM) return;
+
     try {
-      debugInfo.loading = true;
-      const commands = await commandService.listVMCommands($selectedVM.id);
-      console.log('Direct API call result:', commands);
-      debugInfo.error = null;
+      const vmService = getService('vmService');
+      const result = await vmService.testConnection(selectedVM.id);
+      console.log('Direct API test result:', result);
     } catch (error) {
-      console.error('Direct API call failed:', error);
-      debugInfo.error = error.message;
-    } finally {
-      debugInfo.loading = false;
+      console.error('Direct API test failed:', error);
     }
   }
 </script>
@@ -38,7 +42,7 @@
   <h4 class="font-bold mb-2">Command Debug Info</h4>
   <pre class="text-xs">{JSON.stringify(debugInfo, null, 2)}</pre>
   
-  {#if $selectedVM}
+  {#if selectedVM}
     <button onclick={testDirectAPI} class="mt-2 px-3 py-1 bg-blue-500 text-white rounded text-sm">
       Test Direct API Call
     </button>

@@ -5,7 +5,6 @@
  * for better code organization and reusability across VM components.
  */
 
-import { vmStore } from "../../stores/vmStore.js";
 import { commandStore } from "../../stores/commandStore.js";
 
 /**
@@ -190,7 +189,7 @@ export function getStatusDisplay(status) {
  */
 export async function loadVMCommandCount(vmId) {
    try {
-      const commands = await commandStore.getVMCommands(vmId);
+      const commands = await commandStore.getCommandsForVM(vmId);
       return commands.length;
    } catch (error) {
       console.error(`Failed to load command count for VM ${vmId}:`, error);

@@ -10,7 +10,5 @@
 </div> 
 
 <style>
-    .job-list {
-        padding: 2vh;
-    }
+ 
 </style>

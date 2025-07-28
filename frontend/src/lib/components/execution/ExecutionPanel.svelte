@@ -6,12 +6,24 @@
   import Terminal from '../Terminal.svelte';
   import JobHistory from '../job/JobHistory.svelte';
   import JobLogModal from '../job/JobLogModal.svelte';
-  import { selectedVM } from '../../stores/vmStore.js';
+  import { storesContainer } from '../../stores/StoresContainer.js';
+  import { createVMDerivedStores } from '../../stores/vmStore.js';
   import { getService } from '../../core/ServiceContainer.js';
   import { Clock } from 'lucide-svelte';
-    import { jobStore } from '$lib/stores/jobStore';
+  import { onMount } from 'svelte';
 
   let { ontabchanged, oncommandexecute } = $props();
+
+  let vmStore;
+  let jobStore;
+  let selectedVMStore;
+
+  onMount(async () => {
+    vmStore = await storesContainer.get('vmStore');
+    jobStore = await storesContainer.get('jobStore');
+    const { selectedVM } = createVMDerivedStores(vmStore);
+    selectedVMStore = selectedVM;
+  });
 
   const jobService = getService('jobService');
 
@@ -71,7 +83,7 @@
         </div>
       </div>
     {:else}
-      <JobHistory selectedVM={$selectedVM} onviewlogs={handleJobViewLogs} onretry={handleJobRetry} />
+      <JobHistory selectedVM={$selectedVMStore} onviewlogs={handleJobViewLogs} onretry={handleJobRetry} />
     {/if}
   </div>
 

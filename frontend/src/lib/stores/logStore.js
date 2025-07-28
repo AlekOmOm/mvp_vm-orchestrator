@@ -9,45 +9,39 @@
  */
 
 import { createBaseStore } from "./baseStore.js";
+import { createStoreFactory } from "./storeFactoryTemplate.js";
 
-function createLogStore() {
-    const base = createBaseStore({ linesByJob: {} }, { name: "LogStore", enableLogging: true });
+const initialStateLog = { linesByJob: {} };
 
-    function addLogLine(jobId, line) {
-        if (!jobId || !line) return;
-        base.update(state => {
-            const lines = state.linesByJob[jobId] || [];
-            const updatedLines = [...lines, { ...line, jobId }];
-            return {
-                ...state,
-                linesByJob: {
-                    ...state.linesByJob,
-                    [jobId]: updatedLines,
-                },
-            };
-        });
-    }
-
-    function setLogsForJob(jobId, logs) {
-        base.update(state => ({
+function logStoreLogic(baseStore, _deps) {
+   function addLogLine(jobId, line) {
+      if (!jobId || !line) return;
+      baseStore.update((state) => {
+         const lines = state.linesByJob[jobId] || [];
+         return {
             ...state,
             linesByJob: {
-                ...state.linesByJob,
-                [jobId]: logs,
-            }
-        }));
-    }
-
-    function getLogLinesForJob(jobId) {
-        return base.getValue().linesByJob[jobId] || [];
-    }
-    
-    return {
-        ...base,
-        addLogLine,
-        getLogLinesForJob,
-        setLogsForJob,
-    };
+               ...state.linesByJob,
+               [jobId]: [...lines, { ...line, jobId }],
+            },
+         };
+      });
+   }
+   function setLogsForJob(jobId, logs) {
+      baseStore.update((s) => ({
+         ...s,
+         linesByJob: { ...s.linesByJob, [jobId]: logs },
+      }));
+   }
+   function getLogLinesForJob(jobId) {}
+   return { ...baseStore, addLogLine, getLogLinesForJob, setLogsForJob };
 }
 
-export const logStore = createLogStore();
+export const createLogStoreFactory = createStoreFactory(
+   "LogStore",
+   initialStateLog,
+   logStoreLogic
+);
+
+// ❌ REMOVED: Singleton store export - use factory pattern via StoresContainer instead
+// Components should access stores via: await storesContainer.get('logStore')

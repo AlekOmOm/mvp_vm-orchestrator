@@ -5,11 +5,12 @@
 <script>
   import ThemeToggle from './ui/ThemeToggle.svelte';
   import { onMount } from 'svelte';
-  import { initializeServices } from '../core/ServiceContainer.js';
-  import { vmStore } from '../stores/vmStore.js';
-  import { initializeJobStore } from '../stores/jobStore.js';
+  import { initializeServices, serviceContainer } from '../core/ServiceContainer.js';
+  import { storesContainer } from '../stores/StoresContainer.js';
+  import { registerStores } from '../stores/storeRegistry.js';
   import VMManagementPanel from './vm/VMManagementPanel.svelte';
   import ExecutionPanel from './execution/ExecutionPanel.svelte';
+  import ErrorMessage from './debug/ErrorMessage.svelte';
 
   let errorMessage = $state('');
 
@@ -17,8 +18,14 @@
     try {
       console.log('🚀 Initializing Dashboard...');
       await initializeServices();
+      registerStores(serviceContainer);
+      await storesContainer.initialize();
+      
+      // ✅ Trigger VM loading after store initialization
+      const vmStore = await storesContainer.get('vmStore');
       await vmStore.loadVMs();
-      await initializeJobStore();
+      console.log('✅ VMs loaded successfully');
+      
       console.log('✅ Dashboard initialized');
     } catch (error) {
       console.error('❌ Dashboard initialization failed:', error);
@@ -28,7 +35,6 @@
 
   function handleVMSelected(vm) {
     console.log('VM selected in Dashboard:', vm);
-    // VM selection is handled by vmStore in VMManagementPanel
   }
 
   function handleCommandExecute(data) {
@@ -42,14 +48,17 @@
     <ThemeToggle class="fixed top-4 right-4" />
   </header>
 
-  <div class="flex-1 flex overflow-hidden">
+  <div class="content">
     <VMManagementPanel onvmselected={handleVMSelected} />
     <ExecutionPanel oncommandexecute={handleCommandExecute} />
   </div>
 
-  {#if errorMessage}
-    <div class="p-4 bg-destructive/10 border-t border-destructive/20">
-      <p class="text-destructive">{errorMessage}</p>
-    </div>
-  {/if}
+  <ErrorMessage errorMessage={errorMessage} />
 </div>
+
+<style>
+  .content {
+    flex: 1;
+    overflow: hidden;
+  }
+</style>

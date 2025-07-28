@@ -1,11 +1,21 @@
 <script>
 import { Badge } from '$lib/components/ui/badge';
 import { Terminal } from 'lucide-svelte';
-import { selectedVM } from '../../../stores/vmStore.js';
 import { getService } from '../../../core/ServiceContainer.js';
+import { storesContainer } from '../../../stores/StoresContainer.js';
+import { createVMDerivedStores } from '../../../stores/vmStore.js';
 import ExecutionTabs from './ExecutionTabs.svelte';
 
 let { activeTab, ontabchange } = $props();
+
+let vmStore;
+let selectedVMStore;
+
+onMount(async () => {
+  vmStore = await storesContainer.get('vmStore');
+  const { selectedVM } = createVMDerivedStores(vmStore);
+  selectedVMStore = selectedVM;
+});
 
 const jobService = getService('jobService');
 let currentJob = $derived(jobService.getCurrentJob());
@@ -25,8 +35,8 @@ function handleChange(e) {
           <Terminal class="w-3 h-3" /> Executing
         </Badge>
       {/if}
-      {#if $selectedVM}
-        <Badge variant="outline" class="text-xs">{$selectedVM.name}</Badge>
+      {#if $selectedVMStore}
+        <Badge variant="outline" class="text-xs">{$selectedVMStore.name}</Badge>
       {:else}
         <Badge variant="outline" class="text-xs text-muted-foreground">No VM Selected</Badge>
       {/if}

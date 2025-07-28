@@ -31,8 +31,6 @@ export class CommandExecutor {
       // Internal state
       this.executionId = 0;
       this.maxHistorySize = 50;
-
-      console.log("✅ CommandExecutor initialized");
    }
 
    /**

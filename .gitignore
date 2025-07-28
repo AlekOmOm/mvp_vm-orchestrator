@@ -12,3 +12,6 @@ package.json
 .test/
 
 .env
+.DS_Store
+.gitignore
+frontend/src/dist/

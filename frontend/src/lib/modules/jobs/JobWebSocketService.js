@@ -8,8 +8,7 @@
  */
 
 import { writable, derived } from "svelte/store";
-import { jobStore } from "../../stores/jobStore.js";
-import { logStore } from "../../stores/logStore.js";
+// ❌ REMOVED: Direct singleton store imports - these services should use dependency injection if needed
 
 /**
  * Job WebSocket Service class
@@ -60,22 +59,23 @@ export class JobWebSocketService {
                ...current,
                vmId: data.hostAlias || data.vmId,
             };
-            jobStore.setCurrentJob(normalized);
-            jobStore.addJob({
-               ...normalized,
-               status: "running",
-               started_at: normalized.startedAt,
-            });
+            // TODO: Refactor to use dependency injection or event emission
+            // jobStore.setCurrentJob(normalized);
+            // jobStore.addJob({
+            //    ...normalized,
+            //    status: "running",
+            //    started_at: normalized.startedAt,
+            // });
          } catch (_) {}
       });
 
       this.wsClient.on("job:log", (data) => {
-         // Single source of truth: only logStore
-         logStore.addLogLine(data.jobId, {
-            stream: data.stream,
-            data: data.chunk,
-            timestamp: data.timestamp || new Date().toISOString(),
-         });
+         // TODO: Refactor to use dependency injection or event emission
+         // logStore.addLogLine(data.jobId, {
+         //    stream: data.stream,
+         //    data: data.chunk,
+         //    timestamp: data.timestamp || new Date().toISOString(),
+         // });
 
          this.triggerEventHandlers("job:log", data);
       });
@@ -112,17 +112,17 @@ export class JobWebSocketService {
          this.currentJob.set(null);
          this.triggerEventHandlers(eventName, { ...data, status: finalStatus });
 
-         // Reflect completion in global job store
+         // TODO: Refactor to use dependency injection or event emission
          try {
-            jobStore.updateJob(data.jobId, {
-               status: finalStatus,
-               exit_code: data.exitCode || data.exit_code,
-               finished_at:
-                  data.timestamp ||
-                  data.finished_at ||
-                  new Date().toISOString(),
-            });
-            jobStore.setCurrentJob(null);
+            // jobStore.updateJob(data.jobId, {
+            //    status: finalStatus,
+            //    exit_code: data.exitCode || data.exit_code,
+            //    finished_at:
+            //       data.timestamp ||
+            //       data.finished_at ||
+            //       new Date().toISOString(),
+            // });
+            // jobStore.setCurrentJob(null);
          } catch (error) {
             console.error("Error updating job in store:", error);
          }
@@ -150,10 +150,11 @@ export class JobWebSocketService {
          console.log("📊 Job progress:", data);
 
          try {
-            jobStore.updateJob(data.jobId, {
-               progress: data.progress,
-               status: data.status || "running",
-            });
+            // TODO: Refactor to use dependency injection or event emission
+            // jobStore.updateJob(data.jobId, {
+            //    progress: data.progress,
+            //    status: data.status || "running",
+            // });
          } catch (_) {}
 
          this.triggerEventHandlers("job:progress", data);
@@ -231,8 +232,9 @@ export class JobWebSocketService {
             status: "running",
             started_at: new Date().toISOString(),
          };
-         jobStore.setCurrentJob(optimisticJob);
-         jobStore.addJob(optimisticJob);
+         // TODO: Refactor to use dependency injection or event emission
+         // jobStore.setCurrentJob(optimisticJob);
+         // jobStore.addJob(optimisticJob);
       } catch (_) {}
    }
 

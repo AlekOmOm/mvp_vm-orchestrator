@@ -1,23 +1,23 @@
 <script>
-  let { job } = $props();
-  let logLines = $derived(job.logLines);
+  let { logLines = [], className = '' } = $props();
   let logContainer;
+
   $effect(() => {
-    if (logLines.length > 0 && logContainer) {
+    if (logLines && logLines.length > 0 && logContainer) {
       logContainer.scrollTop = logContainer.scrollHeight;
     }
   });
 </script>
 
-<div bind:this={logContainer} class="log-container">
-  {#each logLines as line}
-    <div class="whitespace-pre-wrap {line.stream === 'stderr' ? 'text-red-600' : ''}">
-      {line.data}
-    </div>
-  {/each}
+<div bind:this={logContainer} class="log-container {className}">
+  {#if logLines}
+    {#each logLines as line}
+      <div class="whitespace-pre-wrap {line.stream === 'stderr' ? 'text-red-600' : ''}">
+        {line.data}
+      </div>
+    {/each}
+  {/if}
 </div>
-
-
 
 <style>
   .log-container {
