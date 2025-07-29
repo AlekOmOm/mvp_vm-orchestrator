@@ -9,33 +9,33 @@
 <script>
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from '$lib/components/ui/dialog';
   import { Button } from '$lib/components/ui/button';
-  import { Terminal } from '@lucide/svelte';
+  import { Terminal, Plus, Loader2 } from 'lucide-svelte';
   import TemplateCard from './TemplateCard.svelte';
   import { Input } from '$lib/components/ui/input';
   import { Textarea } from '$lib/components/ui/textarea';
-  import { Label as FormLabel, Label } from '$lib/components/ui/label';
-  import { onMount } from 'svelte';
-  import { storesContainer } from '../../stores/StoresContainer.js';
+  import { Label as FormLabel } from '$lib/components/ui/label';
+  import { getSelectedVM } from '$lib/state/ui.state.svelte.js';
+  import { getVMStore, getCommandStore } from '$lib/state/stores.state.svelte.js';
 
-  let vmStore = $state(null);
-  let commandStore = $state(null);
-  let selectedVM = $state(null);
+  // Props
+  let { 
+    isOpen = $bindable(false), 
+    onclose = () => {}, 
+    oncommandcreated = () => {} 
+  } = $props();
+
+  // Reactive state using getters
+  const selectedVM = $derived(getSelectedVM());
+  const vmStore = $derived(getVMStore());
+  const commandStore = $derived(getCommandStore());
+
+  // Available templates from command store
   let availableTemplatesArray = $state([]);
-
-  // Set up reactive effects synchronously - subscribe to store changes
-  $effect(() => {
-    if (vmStore) {
-      const unsubscribe = vmStore.subscribe((state) => {
-        selectedVM = state.selectedVM;
-      });
-      return unsubscribe;
-    }
-  });
-
+  
   $effect(() => {
     if (commandStore) {
       const unsubscribe = commandStore.subscribe((state) => {
-        availableTemplatesArray = Object.entries(state.availableTemplates).map(([key, config]) => ({
+        availableTemplatesArray = Object.entries(state.availableTemplates || {}).map(([key, config]) => ({
           id: key,
           name: key,
           cmd: config.cmd,
@@ -49,30 +49,6 @@
     }
   });
 
-  // Initialize stores asynchronously
-  onMount(async () => {
-    try {
-      vmStore = await storesContainer.get('vmStore');
-      commandStore = await storesContainer.get('commandStore');
-      await vmStore.loadVMs();
-      await commandStore.loadAvailableTemplates();
-    } catch (error) {
-      console.error('Failed to initialize stores:', error);
-    }
-  });
-
-  // Form state
-  let showVMForm = $state(false);
-  let showCommandForm = $state(false);
-
-
-  // Props
-  let { 
-    isOpen = $bindable(false), 
-    onclose = () => {}, 
-    oncommandcreated = () => {} 
-  } = $props();
-
   // Local state
   let formData = $state({
     name: '',
@@ -84,16 +60,10 @@
   let isSubmitting = $state(false);
   let errorMessage = $state('');
 
-  // Templates are automatically loaded by the composable
-  // No need for manual loading
-
   function sanitizeCommand(cmd) {
     return cmd.split(/\r?\n/).map(line => line.trim()).filter(Boolean).join(' ').trim();
   }
 
-  /**
-   * Handle template selection
-   */
   function selectTemplate(template) {
     formData.name = template.name;
     formData.cmd = template.cmd;
@@ -102,15 +72,11 @@
     formData.timeout = template.timeout || 30000;
   }
 
-  // Derived validation state
-  let isFormValid = $derived(
+  const isFormValid = $derived(
     formData.name.trim().length > 0 && 
     formData.cmd.trim().length > 0
   );
 
-  /**
-   * Reset form
-   */
   function resetForm() {
     formData = {
       name: '',
@@ -122,9 +88,6 @@
     errorMessage = '';
   }
 
-  /**
-   * Handle form submission
-   */
   async function handleSubmit(event) {
     event.preventDefault();
     if (!selectedVM) {
@@ -149,9 +112,6 @@
         timeout: formData.timeout
       };
 
-      console.log('Creating command:', commandData);
-      console.log('Selected VM:', selectedVM);
-
       await commandStore.createCommand(selectedVM.id, commandData);
 
       oncommandcreated();
@@ -160,7 +120,6 @@
     } catch (error) {
       console.error('Failed to create command:', error);
       
-      // Handle specific error cases
       if (error.message.includes('409') || error.message.includes('Conflict')) {
         errorMessage = 'A command with this name already exists. Please choose a different name.';
       } else {
@@ -171,9 +130,6 @@
     }
   }
 
-  /**
-   * Handle close
-   */
   function handleClose() {
     resetForm();
     onclose();
