@@ -6,7 +6,7 @@
   import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '$lib/components/ui/select';
   import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
   import { Badge } from '$lib/components/ui/badge';
-  import { X, Plus, Terminal } from 'lucide-svelte';
+  import { X, Plus, Terminal } from '@lucide/svelte';
   import { serviceContainer } from '../../core/ServiceContainer.js';
 
   let { vmId, onCancel, onSubmit } = $props();

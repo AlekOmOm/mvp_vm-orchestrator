@@ -5,7 +5,22 @@
  * for better code organization and reusability across VM components.
  */
 
-import { commandStore } from "../../stores/commandStore.js";
+/**
+ * Handles VM command management orchestration
+ * Components should use this instead of calling store methods directly
+ * @param {Object} vm - VM object
+ * @param {Object} vmStore - VM store instance
+ * @param {Object} commandStore - Command store instance
+ */
+export async function handleVMManageCommands(vm, vmStore, commandStore) {
+   if (!vm || !vmStore || !commandStore) return;
+
+   // 1. Select VM (pure CRUD)
+   vmStore.selectVM(vm);
+
+   // 2. Load commands (pure CRUD)
+   await commandStore.loadVMCommands(vm.id);
+}
 
 /**
  * VM Environment options for forms and displays
@@ -185,9 +200,10 @@ export function getStatusDisplay(status) {
 /**
  * Loads command count for a specific VM
  * @param {string} vmId - The VM ID
+ * @param {Object} commandStore - Command store instance
  * @returns {Promise<number>} Number of commands for the VM
  */
-export async function loadVMCommandCount(vmId) {
+export async function loadVMCommandCount(vmId, commandStore) {
    try {
       const commands = await commandStore.getCommandsForVM(vmId);
       return commands.length;
@@ -200,14 +216,15 @@ export async function loadVMCommandCount(vmId) {
 /**
  * Loads command counts for multiple VMs
  * @param {Array} vms - Array of VM objects
+ * @param {Object} commandStore - Command store instance
  * @returns {Promise<Object>} Object mapping VM IDs to command counts
  */
-export async function loadVMCommandCounts(vms) {
+export async function loadVMCommandCounts(vms, commandStore) {
    const counts = {};
 
    await Promise.all(
       vms.map(async (vm) => {
-         counts[vm.id] = await loadVMCommandCount(vm.id);
+         counts[vm.id] = await loadVMCommandCount(vm.id, commandStore);
       })
    );
 

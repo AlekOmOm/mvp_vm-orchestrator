@@ -3,18 +3,26 @@
   import { storesContainer } from '../../stores/StoresContainer.js';
   import { getService } from '../../core/ServiceContainer.js';
 
-  let vmStore;
+  let vmStore = $state(null);
   let selectedVM = $state(null);
 
-  onMount(async () => {
-    vmStore = await storesContainer.get('vmStore');
-
-    $effect(() => {
-      if (vmStore) {
-        const state = vmStore.getValue();
+  // Set up reactive effect synchronously - subscribe to store changes
+  $effect(() => {
+    if (vmStore) {
+      const unsubscribe = vmStore.subscribe((state) => {
         selectedVM = state.selectedVM;
-      }
-    });
+      });
+      return unsubscribe;
+    }
+  });
+
+  // Initialize store asynchronously
+  onMount(async () => {
+    try {
+      vmStore = await storesContainer.get('vmStore');
+    } catch (error) {
+      console.error('Failed to initialize CommandDebug stores:', error);
+    }
   });
 
   // Debug info derived from selected VM

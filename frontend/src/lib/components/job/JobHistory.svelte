@@ -7,36 +7,17 @@
 -->
 
 <script>
-import { onMount } from 'svelte';
-import { storesContainer } from '../../stores/StoresContainer.js';
-import Table from '$lib/components/ui/table/table.svelte';
-import Button from '$lib/components/ui/button/button.svelte';
+import { getJobStore } from '$lib/state/stores.state.svelte.js';
+import { getSelectedVMJobs } from '$lib/state/ui.state.svelte.js';
 
-let jobStore;
-let jobs = $state([]);
-let loading = $state(false);
+const jobStore = getJobStore();
+const filteredJobs = $derived(getSelectedVMJobs());
 
-onMount(async () => {
-  try {
-    jobStore = await storesContainer.get('jobStore');
-
-    $effect(() => {
-      const state = jobStore.getValue();
-      jobs = state.jobs;
-      loading = state.loading;
-    });
-
-    await jobStore.loadJobs();
-  } catch (error) {
-    console.error('Failed to initialize job store:', error);
-  }
-});
+let { onviewlogs, onretry } = $props();
 
 function refresh() {
   jobStore?.loadJobs();
 }
-
-
 </script>
 
 <div class="job-history">
@@ -45,20 +26,18 @@ function refresh() {
       <tr class="job-table-header">
         <th>Command</th>
         <th>Type</th>
-        <th>
-          logs
-        </th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody class="job-list">
-      {#each jobs as job}
+      {#each filteredJobs as job}
         <tr>
           <td class="td">{job.command}</td>
           <td>{job.type}</td>
-          <td><Button onclick={() => {
-            // TODO: Implement log viewing with new store pattern
-            console.log('View logs for job:', job.id);
-          }}>view log</Button></td>
+          <td>
+            <Button onclick={() => onviewlogs(job)}>View Log</Button>
+            <Button onclick={() => onretry(job)}>Retry</Button>
+          </td>
         </tr>
       {/each}
     </tbody>

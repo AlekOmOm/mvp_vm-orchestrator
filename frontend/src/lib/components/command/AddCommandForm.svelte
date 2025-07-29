@@ -6,49 +6,53 @@
 -->
 
 <script>
+  import { Dialog, DialogContent, DialogHeader, DialogTitle } from '$lib/components/ui/dialog';
   import { Button } from '$lib/components/ui/button';
+  import { Terminal } from '@lucide/svelte';
   import TemplateCard from './TemplateCard.svelte';
   import { Input } from '$lib/components/ui/input';
   import { Textarea } from '$lib/components/ui/textarea';
   import { Label as FormLabel, Label } from '$lib/components/ui/label';
-  import Modal from '$lib/components/ui/Modal.svelte';
-  import {
-    Plus,
-    Terminal,
-    Loader2
-  } from '@lucide/svelte';
   import { onMount } from 'svelte';
   import { storesContainer } from '../../stores/StoresContainer.js';
 
-  let vmStore;
-  let commandStore;
+  let vmStore = $state(null);
+  let commandStore = $state(null);
   let selectedVM = $state(null);
   let availableTemplatesArray = $state([]);
 
+  // Set up reactive effects synchronously - subscribe to store changes
+  $effect(() => {
+    if (vmStore) {
+      const unsubscribe = vmStore.subscribe((state) => {
+        selectedVM = state.selectedVM;
+      });
+      return unsubscribe;
+    }
+  });
+
+  $effect(() => {
+    if (commandStore) {
+      const unsubscribe = commandStore.subscribe((state) => {
+        availableTemplatesArray = Object.entries(state.availableTemplates).map(([key, config]) => ({
+          id: key,
+          name: key,
+          cmd: config.cmd,
+          type: config.type,
+          description: config.description,
+          hostAlias: config.hostAlias,
+          timeout: config.timeout || 30000,
+        }));
+      });
+      return unsubscribe;
+    }
+  });
+
+  // Initialize stores asynchronously
   onMount(async () => {
     try {
       vmStore = await storesContainer.get('vmStore');
       commandStore = await storesContainer.get('commandStore');
-
-      $effect(() => {
-        if (vmStore) {
-          const state = vmStore.getValue();
-          selectedVM = state.selectedVM;
-        }
-        if (commandStore) {
-          const state = commandStore.getValue();
-          availableTemplatesArray = Object.entries(state.availableTemplates).map(([key, config]) => ({
-            id: key,
-            name: key,
-            cmd: config.cmd,
-            type: config.type,
-            description: config.description,
-            hostAlias: config.hostAlias,
-            timeout: config.timeout || 30000,
-          }));
-        }
-      });
-
       await vmStore.loadVMs();
       await commandStore.loadAvailableTemplates();
     } catch (error) {
@@ -63,7 +67,7 @@
 
   // Props
   let { 
-    isOpen = false, 
+    isOpen = $bindable(false), 
     onclose = () => {}, 
     oncommandcreated = () => {} 
   } = $props();
@@ -175,37 +179,33 @@
   }
 </script>
 
-<Modal
-  {isOpen}
-  onClose={handleClose}
-  title="Add New Command"
-  size="lg"
->
-  {#snippet children()}
-
-    <div class="flex h-[70vh]">
+<Dialog bind:open={isOpen}>
+  <DialogContent class="sm:max-w-4xl max-h-[80vh]">
+    <DialogHeader>
+      <DialogTitle>Add New Command</DialogTitle>
+    </DialogHeader>
+    
+    <div class="flex h-[60vh] gap-4">
       <!-- Available Templates -->
-      <div class="w-1/2 border-r overflow-y-auto">
-        <div class="p-4">
-          <h3 class="text-lg font-medium mb-4">Available Templates</h3>
-
-          {#if $availableTemplatesArray.length > 0}
-            <div class="space-y-3">
-              {#each $availableTemplatesArray as template (template.id)}
-                <TemplateCard {template} on:select={() => selectTemplate(template)} />
-              {/each}
-            </div>
-          {:else}
-            <div class="text-center text-gray-500 py-8">
-              <Terminal class="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <p>No command templates available</p>
-            </div>
-          {/if}
-        </div>
+      <div class="w-1/2 border-r pr-4 overflow-y-auto">
+        <h3 class="text-lg font-medium mb-4">Available Templates</h3>
+        
+        {#if availableTemplatesArray.length > 0}
+          <div class="space-y-3">
+            {#each availableTemplatesArray as template (template.id)}
+              <TemplateCard {template} onselect={() => selectTemplate(template)} />
+            {/each}
+          </div>
+        {:else}
+          <div class="text-center text-muted-foreground py-8">
+            <Terminal class="w-12 h-12 mx-auto mb-4" />
+            <p>No command templates available</p>
+          </div>
+        {/if}
       </div>
-
+      
       <!-- Form -->
-      <div class="w-1/2 overflow-y-auto">
+      <div class="w-1/2 pl-4 overflow-y-auto">
         <form onsubmit={handleSubmit} class="p-4 space-y-4">
           <!-- Name -->
           <div>
@@ -309,7 +309,7 @@
         </form>
       </div>
     </div>
-  {/snippet}
-</Modal>
+  </DialogContent>
+</Dialog>
 
 

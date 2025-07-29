@@ -1,4 +1,4 @@
-import { createBaseStore } from './baseStore.js';
+import { createBaseStore } from './crudStore.js';
 
 export function createStoreFactory(storeName, initialState, storeLogic) {
    return function storeFactory(dependencies = {}) {

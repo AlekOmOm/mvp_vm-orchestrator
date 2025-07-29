@@ -1,5 +1,6 @@
 <script>
 import { Badge } from '$lib/components/ui/badge';
+import { onMount } from 'svelte';
 import { Terminal } from 'lucide-svelte';
 import { getService } from '../../../core/ServiceContainer.js';
 import { storesContainer } from '../../../stores/StoresContainer.js';
@@ -12,9 +13,13 @@ let vmStore;
 let selectedVMStore;
 
 onMount(async () => {
-  vmStore = await storesContainer.get('vmStore');
-  const { selectedVM } = createVMDerivedStores(vmStore);
-  selectedVMStore = selectedVM;
+  try {
+    vmStore = await storesContainer.get('vmStore');
+    const { selectedVM } = createVMDerivedStores(vmStore);
+    selectedVMStore = selectedVM;
+  } catch (error) {
+    console.error('Failed to initialize ExecutionHeader stores:', error);
+  }
 });
 
 const jobService = getService('jobService');

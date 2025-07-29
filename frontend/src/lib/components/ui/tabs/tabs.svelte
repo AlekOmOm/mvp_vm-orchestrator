@@ -1,16 +1,19 @@
 <script>
-  import { setContext } from 'svelte';
-  import { writable } from 'svelte/store';
-  import { cn } from "$lib/utils.js";
+	import { Tabs as TabsPrimitive } from "bits-ui";
+	import { cn } from "$lib/utils.js";
 
-  let { className, value = "", ...restProps } = $props();
-
-  const activeTab = writable(value);
-  setContext('tabs', activeTab);
-
-  let activeTab.set(value);
+	let {
+		ref = $bindable(null),
+		value = $bindable(""),
+		class: className,
+		...restProps
+	} = $props();
 </script>
 
-<div class={cn("w-full", className)} {...restProps}>
-  <slot />
-</div>
+<TabsPrimitive.Root
+	bind:ref
+	bind:value
+	data-slot="tabs"
+	class={cn("flex flex-col gap-2", className)}
+	{...restProps}
+/>

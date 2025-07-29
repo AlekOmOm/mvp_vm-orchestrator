@@ -6,7 +6,6 @@
 -->
 
 <script>
-
   import { Button } from '$lib/components/ui/button';
   import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
   import { Badge } from '$lib/components/ui/badge';
@@ -17,33 +16,52 @@
     Play, 
     Settings,
     CheckCircle2
-  } from 'lucide-svelte';
-
-  // Props using Svelte 5 runes
-  let {
-    vm,
-    isSelected = false,
-    isExecuting = false,
-    commandCount = 0,
-    onselect,
-    onedit,
-    ondelete,
-    onmanagecommands
-  } = $props();
-
-  function handleSelect() {
-    onselect?.(vm);
-  }
+  } from '@lucide/svelte';
+  import { storesContainer } from '../../stores/StoresContainer';
+  import { onMount } from 'svelte';
+ 
+   // Props using Svelte 5 runes
+   let {
+     vm,
+     isSelected = false,
+     isExecuting = false,
+     onselect,
+     onedit,
+     onmanagecommands
+   } = $props();
+ 
+   let commandStore;
+   let commandCount = $state(0);
+ 
+   onMount(async () => {
+     try {
+       commandStore = await storesContainer.get('commandStore');
+       // Initial load
+       if (commandStore) {
+         const commands = commandStore.getCommandsForVM(vm.id);
+         commandCount = commands.length;
+       }
+ 
+       // Subscribe to future changes
+       commandStore?.subscribe(state => {
+         commandCount = state.commandsByVM[vm.id]?.length || 0;
+       });
+     } catch (error) {
+       console.error(`Failed to get command store for VM ${vm.id}`, error);
+     }
+   });
+ 
+   function handleSelect() {
+     onselect?.(vm);
+   }
 
   function handleEdit() {
     onedit?.(vm);
   }
 
-  function handleDelete() {
-    ondelete?.(vm);
-  }
 
-  function handleManageCommands() {
+  function handleManageCommands(e) {
+    e.stopPropagation();
     onmanagecommands?.(vm);
   }
 
@@ -137,7 +155,10 @@
       <Button
         variant="outline"
         size="sm"
-        onclick={handleManageCommands}
+        onclick={(e) => {
+          e.stopPropagation();
+          handleManageCommands(e)
+        }}
         disabled={isExecuting}
         class="h-8 w-8 p-0"
       >
@@ -147,22 +168,18 @@
       <Button
         variant="outline"
         size="sm"
-        onclick={handleEdit}
+        onclick={(e) => {
+          e.stopPropagation();
+          handleEdit(e)
+        }}
         disabled={isExecuting}
         class="h-8 w-8 p-0"
       >
         <Edit class="w-3 h-3" />
       </Button>
 
-      <Button
-        variant="outline"
-        size="sm"
-        onclick={handleDelete}
-        disabled={isExecuting}
-        class="h-8 w-8 p-0 text-destructive hover:text-destructive"
-      >
-        <Trash2 class="w-3 h-3" />
-      </Button>
+      <!-- no delete button, not until much later -->
+
     </div>
   </CardContent>
   </Card>

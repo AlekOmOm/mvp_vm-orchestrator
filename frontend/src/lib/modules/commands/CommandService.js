@@ -4,7 +4,10 @@ export class CommandService {
    }
 
    async listVMCommands(vmId) {
-      return await this.api.get(`/api/vms/${vmId}/commands`);
+      console.log("🔍 [CommandService] listVMCommands called with vmId:", vmId);
+      const response = await this.api.get(`/api/vms/${vmId}/commands`);
+      console.log("📋 [CommandService] API response:", response);
+      return response;
    }
 
    async createCommand(vmId, data) {
@@ -24,7 +27,10 @@ export class CommandService {
       return await this.api.delete(`/api/commands/${id}`);
    }
 
-   async getTemplates() {
-      return await this.api.get("/api/commands");
+   async getCommandTemplates() {
+      console.log("🔍 [CommandService] Loading command templates");
+      const response = await this.api.get('/api/commands');
+      console.log("📋 [CommandService] Command templates loaded:", response);
+      return response;
    }
 }

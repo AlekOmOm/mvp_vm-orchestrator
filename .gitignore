@@ -15,3 +15,4 @@ package.json
 .DS_Store
 .gitignore
 frontend/src/dist/
+mvp-frontend_docs.code-workspace

@@ -77,9 +77,8 @@ let displayCmd = command.cmd.length > 50 ? command.cmd.substring(0, 50) + '...' 
         <Edit class="w-3 h-3" />
       </Button>
 
-      <Button variant="outline" size="sm" onclick={handleDelete} disabled={isExecuting} class="text-destructive hover:text-destructive">
-        <Trash2 class="w-3 h-3" />
-      </Button>
+      <!-- no delete button, not until much later -->
+
     </div>
   </CardContent>
 </Card>

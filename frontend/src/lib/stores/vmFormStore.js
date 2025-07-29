@@ -3,6 +3,15 @@
  * 
  * Handles VM form state management and operations.
  * Provides reusable logic for VM creation and editing forms.
+ * 
+ * functions:
+ * - submitForm
+ * - clearError
+ * - reset
+ * - validateVM
+ * - sanitizeVMData
+ * - handleSubmit
+ * - handleCancel
  */
 
 import { writable } from 'svelte/store';
@@ -14,8 +23,6 @@ let vmStore;
  */
 function createVMFormStore() {
   const { subscribe, set, update } = writable({
-    showForm: false,
-    editingVM: null,
     loading: false,
     error: null
   });
@@ -23,42 +30,8 @@ function createVMFormStore() {
   return {
     subscribe,
 
-    /**
-     * Show form for creating a new VM
-     */
-    showCreateForm() {
-      update(state => ({
-        ...state,
-        showForm: true,
-        editingVM: null,
-        error: null
-      }));
-    },
 
-    /**
-     * Show form for editing an existing VM
-     * @param {Object} vm - VM to edit
-     */
-    showEditForm(vm) {
-      update(state => ({
-        ...state,
-        showForm: true,
-        editingVM: vm,
-        error: null
-      }));
-    },
 
-    /**
-     * Hide the form
-     */
-    hideForm() {
-      update(state => ({
-        ...state,
-        showForm: false,
-        editingVM: null,
-        error: null
-      }));
-    },
 
     /**
      * Submit VM form data
@@ -84,8 +57,6 @@ function createVMFormStore() {
           console.log("✅ VM created successfully");
         }
 
-        // Close form on success
-        this.hideForm();
         return result;
       } catch (error) {
         console.error("🚨 VM form submission error:", error);
@@ -237,18 +208,4 @@ export const vmFormHandlers = {
     vmFormStore.hideForm();
   },
 
-  /**
-   * Handle showing create form
-   */
-  handleShowCreate() {
-    vmFormStore.showCreateForm();
-  },
-
-  /**
-   * Handle showing edit form
-   * @param {Object} vm - VM to edit
-   */
-  handleShowEdit(vm) {
-    vmFormStore.showEditForm(vm);
-  }
 };

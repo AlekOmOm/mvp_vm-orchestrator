@@ -49,6 +49,11 @@ export function registerLegacyStores() {
       const mod = await import("./vmStore.js");
       return mod.vmStore;
    });
+   // vmFormStore
+   storesContainer.register("vmFormStore", async () => {
+      const mod = await import("./vmFormStore.js");
+      return mod.vmFormStore;
+   });
    storesContainer.register("commandStore", async () => {
       const mod = await import("./commandStore.js");
       return mod.commandStore;
@@ -61,4 +66,10 @@ export function registerLegacyStores() {
       const mod = await import("./logStore.js");
       return mod.logStore;
    });
+   // themeStore
+   storesContainer.register("themeStore", async () => {
+      const mod = await import("./themeStore.js");
+      return mod.themeStore;
+   });
+   // 
 }

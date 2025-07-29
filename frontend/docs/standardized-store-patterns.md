@@ -101,9 +101,28 @@ All stores provide these common methods:
 
 ```svelte
 <script>
-  import { useVMStore } from '../../stores/composables.js';
-  
-  const { vms, selectedVM, selectVM } = useVMStore();
+  import { onMount } from 'svelte';
+  import { storesContainer } from '../../stores/StoresContainer.js';
+
+  let vmStore;
+  let vms = $state([]);
+  let selectedVM = $state(null);
+
+  onMount(async () => {
+    vmStore = await storesContainer.get('vmStore');
+
+    $effect(() => {
+      if (vmStore) {
+        const state = vmStore.getValue();
+        vms = state.vms;
+        selectedVM = state.selectedVM;
+      }
+    });
+  });
+
+  function selectVM(vm) {
+    vmStore?.selectVM(vm);
+  }
 </script>
 
 {#each vms as vm}
@@ -113,47 +132,51 @@ All stores provide these common methods:
 {/each}
 ```
 
-### Complex Component
+### Complex Component (Multiple Stores)
 
 ```svelte
 <script>
-  import { useVMStore, useCommandStore } from '../../stores/composables.js';
-  
-  const { selectedVM, selectVM } = useVMStore();
-  const { availableTemplatesArray, createCommand } = useCommandStore();
-  
+  import { onMount } from 'svelte';
+  import { storesContainer } from '../../stores/StoresContainer.js';
+
+  let vmStore;
+  let commandStore;
+  let selectedVM = $state(null);
+  let availableTemplatesArray = $state([]);
+
+  onMount(async () => {
+    try {
+      vmStore = await storesContainer.get('vmStore');
+      commandStore = await storesContainer.get('commandStore');
+
+      $effect(() => {
+        if (vmStore) {
+          const state = vmStore.getValue();
+          selectedVM = state.selectedVM;
+        }
+        if (commandStore) {
+          const state = commandStore.getValue();
+          availableTemplatesArray = Object.entries(state.availableTemplates).map(([key, config]) => ({
+            id: key,
+            name: key,
+            ...config
+          }));
+        }
+      });
+
+      await vmStore.loadVMs();
+      await commandStore.loadAvailableTemplates();
+    } catch (error) {
+      console.error('Failed to initialize stores:', error);
+    }
+  });
+
   async function handleCreateCommand(commandData) {
     if (!selectedVM) return;
-    await createCommand(selectedVM.id, commandData);
+    await commandStore.createCommand(selectedVM.id, commandData);
   }
 </script>
 ```
-
-## Migration Checklist
-
-When updating components to use the new patterns:
-
-1. **Remove manual store access**:
-   - Remove `onMount` store initialization
-   - Remove `$effect` for state synchronization
-   - Remove manual state variables
-
-2. **Import composables**:
-   ```javascript
-   import { useVMStore, useCommandStore } from '../../stores/composables.js';
-   ```
-
-3. **Use destructured composable returns**:
-   ```javascript
-   const { vms, selectedVM, selectVM } = useVMStore();
-   ```
-
-4. **Update template references**:
-   - Change `$vms` to `vms`
-   - Change `$selectedVM` to `selectedVM`
-
-5. **Update method calls**:
-   - Change `vmStore.selectVM(vm)` to `selectVM(vm)`
 
 ## Benefits
 

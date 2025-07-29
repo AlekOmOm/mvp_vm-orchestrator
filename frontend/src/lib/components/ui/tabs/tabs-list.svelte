@@ -1,15 +1,20 @@
 <script>
-  import { cn } from "$lib/utils.js";
+	import { Tabs as TabsPrimitive } from "bits-ui";
+	import { cn } from "$lib/utils.js";
 
-  let { class: className = undefined, ...restProps } = $props();
+	let {
+		ref = $bindable(null),
+		class: className,
+		...restProps
+	} = $props();
 </script>
 
-<div
-  class={cn(
-    "inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
-    className
-  )}
-  {...restProps}
->
-  <slot />
-</div>
+<TabsPrimitive.List
+	bind:ref
+	data-slot="tabs-list"
+	class={cn(
+		"bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]",
+		className
+	)}
+	{...restProps}
+/>

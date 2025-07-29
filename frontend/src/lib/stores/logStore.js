@@ -8,7 +8,7 @@
  * -> thus integrated in JobService
  */
 
-import { createBaseStore } from "./baseStore.js";
+import { createBaseStore } from "./crudStore.js";
 import { createStoreFactory } from "./storeFactoryTemplate.js";
 
 const initialStateLog = { linesByJob: {} };
@@ -42,6 +42,3 @@ export const createLogStoreFactory = createStoreFactory(
    initialStateLog,
    logStoreLogic
 );
-
-// ❌ REMOVED: Singleton store export - use factory pattern via StoresContainer instead
-// Components should access stores via: await storesContainer.get('logStore')
