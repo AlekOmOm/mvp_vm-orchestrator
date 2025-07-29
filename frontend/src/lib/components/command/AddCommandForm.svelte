@@ -3,6 +3,7 @@
   
   Shows available command templates as suggestions when creating new commands.
   Uses Svelte 5 syntax with $props(), $state(), and $derived().
+  test
 -->
 
 <script>
