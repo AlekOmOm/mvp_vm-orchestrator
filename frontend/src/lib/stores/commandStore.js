@@ -1,96 +1,87 @@
 /* src/lib/stores/commandStore.js */
-import { createCRUDStore } from '$lib/stores/createCRUDStore.js';
-import { withLoadingState } from '$lib/stores/withLoadingState.js'; // keep the helper
-
-/* plain JS services (already registered in your ServiceContainer) */
-import { getService } from '$lib/core/ServiceContainer.js';
-const commandService = getService('commandService');
-const vmService      = getService('vmService');
+import { createCRUDStore } from "$lib/stores/crudStore.js";
 
 /* initial shape --------------------------------------------------- */
 const initialState = {
-  vmCommands: [],
-  commandsByVM: {},
-  availableCommandTemplates: {}, // RENAMED: was availableTemplates
-  loading: false,
-  error: null
+   vmCommands: [],
+   commandsByVM: {},
+   availableCommandTemplates: {},
+   loading: false,
+   error: null,
 };
 
-/* store instance -------------------------------------------------- */
-const store = createCRUDStore(initialState);
+/* store factory -------------------------------------------------- */
+export function createCommandStore(dependencies) {
+   const { commandService, vmService } = dependencies;
+   const store = createCRUDStore(initialState);
 
-/* public API identical to the old BaseStore version -------------- */
-export const commandStore = {
-  /* Svelte store contract */
-  subscribe: store.subscribe,
+   return {
+      /* Svelte store contract */
+      subscribe: store.subscribe,
+      getState: store.getState,
+      getValue: store.getState, // legacy alias
 
-  /* synchronous access */
-  getState: store.getState,   // now the official name
-  getValue: store.getState,   // legacy alias
+      /* ───────── business methods ───────── */
+      async loadVMCommands(vmId) {
+         if (!vmId) return [];
 
-  /* ───────── business methods ───────── */
+         const backendVM = await vmService.ensureRegistered(vmId);
+         const vmCommands = await commandService.listVMCommands(backendVM.id);
 
-  async loadVMCommands(vmId) {
-    if (!vmId) return [];
+         const state = store.getState();
+         store.set({
+            ...state,
+            vmCommands,
+            commandsByVM: { ...state.commandsByVM, [vmId]: vmCommands },
+         });
+         return vmCommands;
+      },
 
-    return withLoadingState(store, async () => {
-      const backendVM  = await vmService.ensureRegistered(vmId);
-      const vmCommands = await commandService.listVMCommands(backendVM.id);
+      async loadAvailableCommandTemplates() {
+         const commandTemplates = await commandService.getCommandTemplates();
+         store.update((s) => ({
+            ...s,
+            availableCommandTemplates: commandTemplates,
+         }));
+         return commandTemplates;
+      },
 
-      const state = store.getState();
-      store.set({
-        ...state,
-        vmCommands,
-        commandsByVM: { ...state.commandsByVM, [vmId]: vmCommands }
-      });
-      return vmCommands;
-    });
-  },
+      async createCommand(vmId, data) {
+         if (!vmId) throw new Error("VM id required");
 
-  async loadAvailableCommandTemplates() { // RENAMED: was loadAvailableTemplates
-    return withLoadingState(store, async () => {
-      const commandTemplates = await commandService.getCommandTemplates(); // RENAMED method
-      store.update((s) => ({ ...s, availableCommandTemplates: commandTemplates }));
-      return commandTemplates;
-    });
-  },
+         const backendVM = await vmService.ensureRegistered(vmId);
+         const newCommand = await commandService.createCommand(
+            backendVM.id,
+            data
+         );
 
-  async createCommand(vmId, data) {
-    if (!vmId) throw new Error('VM id required');
+         store.update((s) => {
+            const vmCmds = s.commandsByVM[vmId] ?? [];
+            return {
+               ...s,
+               vmCommands: s.vmCommands.concat(newCommand),
+               commandsByVM: {
+                  ...s.commandsByVM,
+                  [vmId]: vmCmds.concat(newCommand),
+               },
+            };
+         });
+         return newCommand;
+      },
 
-    return withLoadingState(store, async () => {
-      const backendVM   = await vmService.ensureRegistered(vmId);
-      const newCommand  = await commandService.createCommand(backendVM.id, data);
+      getCommandsForVM(vmId) {
+         return store.getState().commandsByVM[vmId] ?? [];
+      },
 
-      store.update((s) => {
-        const vmCmds = s.commandsByVM[vmId] ?? [];
-        return {
-          ...s,
-          vmCommands: s.vmCommands.concat(newCommand),
-          commandsByVM: {
-            ...s.commandsByVM,
-            [vmId]: vmCmds.concat(newCommand)
-          }
-        };
-      });
-      return newCommand;
-    });
-  },
+      clearCommands() {
+         store.set({
+            ...initialState,
+            availableCommandTemplates: {},
+         });
+      },
 
-  /* updateCommand, deleteCommand  →  identical logic, call store.update() */
-
-  getCommandsForVM(vmId) {
-    return store.getState().commandsByVM[vmId] ?? [];
-  },
-
-  clearCommands() {
-    store.set({
-      ...initialState,
-      availableCommandTemplates: {} // RENAMED: was availableTemplates
-    });
-  },
-
-  getAvailableCommandTemplates() {
-    return store.getState().availableCommandTemplates;
-  }
-};
+      getAvailableCommandTemplates() {
+         return store.getState().availableCommandTemplates;
+      },
+   };
+}

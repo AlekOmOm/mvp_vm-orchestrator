@@ -1,12 +1,12 @@
 <script>
   import Dashboard from './lib/components/Dashboard.svelte';
   import './styles/styles.css';
-  import { initStores } from '$lib/state/stores.state.svelte.js';
+  import { initializeStoresData } from '$lib/state/stores.state.svelte.js';
   import { onMount } from 'svelte';
 
   let ready = $state(false);
   onMount(async () => {
-    await initStores();   // wait for container + DI
+    await initializeStoresData();   // Single call handles everything
     ready = true;
   });
 </script>

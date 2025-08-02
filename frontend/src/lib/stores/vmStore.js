@@ -1,43 +1,66 @@
 /**
- * VM Store - Minimal implementation
+ * VM Store - Direct instance implementation
+ *
+ * This store is now managed through the ServiceContainer and accessed
+ * via stores.state.svelte.js. This file provides the store factory
+ * for the new dependency injection system.
  */
 
 import { createCRUDStore } from "./crudStore.js";
 
 const initialState = {
-   vms: [],
-   selectedVM: null,
+   vms: null,
+   loading: false,
    error: null,
 };
 
-function createVMStore(dependencies) {
+export function createVMStore(dependencies) {
    const { vmService } = dependencies;
-   const store = createCRUDStore(initialState, vmService);
+   const store = createCRUDStore(initialState);
 
    return {
-      ...store,
+      // Svelte store contract
+      subscribe: store.subscribe,
 
-      async loadVMs() {
+      // Direct state access for runes
+      get vms() {
+         return store.getState().vms;
+      },
+      get loading() {
+         return store.getState().loading;
+      },
+      get error() {
+         return store.getState().error;
+      },
+
+      // Methods
+      async loadVMs(forceRefresh = false) {
+         store.update((state) => ({ ...state, loading: true, error: null }));
+
          try {
-            const vms = await vmService.loadVMs();
-            store.update(state => ({ ...state, vms, error: null }));
+            const vms = await vmService.loadVMs(forceRefresh);
+            console.log("VMs loaded:", vms.length);
+            store.update((state) => ({
+               ...state,
+               vms,
+               loading: false,
+               error: null,
+            }));
+            console.log("VMs loaded:", vms.length);
             return vms;
          } catch (error) {
-            store.update(state => ({ ...state, error: error.message }));
+            console.error("Failed to load VMs:", error);
+            store.update((state) => ({
+               ...state,
+               loading: false,
+               error: error.message,
+            }));
             throw error;
          }
       },
 
-      selectVM(vm) {
-         store.update(state => ({ ...state, selectedVM: vm }));
-         if (vm) localStorage.setItem("lastSelectedVMId", vm.id);
-      },
-
       getVMById(id) {
-         const { vms } = store.getState();
-         return vms.find(vm => vm.id === id) || null;
-      }
+         return this.vms?.find((vm) => vm.id === id) || null;
+      },
    };
 }
-
-export const createVMStoreFactory = () => createVMStore;

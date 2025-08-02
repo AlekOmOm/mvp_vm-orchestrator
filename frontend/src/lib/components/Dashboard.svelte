@@ -1,14 +1,12 @@
-<!--
-  Dashboard Component - Pure Layout
--->
-
 <script>
-  import Panel from '$lib/components/ui/Panel.svelte';
-  import VMManagementPanel from './vm/VMManagementPanel.svelte';
-  import ExecutionPanel from './execution/ExecutionPanel.svelte';
-  import ThemeToggle from './ui/ThemeToggle.svelte';
+  // ui
+  import Panel from '$lib/components/lib/ui/Panel.svelte';
+  import ThemeToggle from '$lib/components/lib/ui/ThemeToggle.svelte';
 
-  let error = $state(null);
+  // components
+  import VMManagementPanel from '$lib/components/VMManagementPanel.svelte';
+  import ExecutionPanel from '$lib/components/ExecutionPanel.svelte';
+
 </script>
 
 <div class="h-screen flex flex-col bg-background">
@@ -19,16 +17,11 @@
 
   <div class="flex-1 overflow-hidden flex">
     <Panel variant="sidebar">
-      <VMManagementPanel />
+      <VMManagementPanel/>
     </Panel>
     <Panel variant="main">
       <ExecutionPanel />
     </Panel>
   </div>
 
-  {#if error}
-    <div class="border-t bg-destructive/10 px-6 py-2 text-sm text-destructive">
-      Error: {error}
-    </div>
-  {/if}
 </div>

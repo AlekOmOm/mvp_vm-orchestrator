@@ -1,3 +1,5 @@
+/* src/lib/state/theme.state.svelte.js */
+
 /* ── private reactive fields ── */
 let _theme = $state(getInitial());
 
@@ -24,8 +26,10 @@ function getInitial() {
 }
 
 // Effect to sync theme changes to DOM and localStorage
-$effect(() => {
-   if (typeof document !== "undefined")
-      document.documentElement.classList.toggle("dark", _theme === "dark");
-   if (typeof localStorage !== "undefined") localStorage.theme = _theme;
+$effect.root(() => {
+	$effect(() => {
+		if (typeof document !== 'undefined')
+			document.documentElement.classList.toggle('dark', _theme === 'dark');
+		if (typeof localStorage !== 'undefined') localStorage.theme = _theme;
+	});
 });

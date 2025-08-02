@@ -3,20 +3,10 @@
  * 
  * Handles VM form state management and operations.
  * Provides reusable logic for VM creation and editing forms.
- * 
- * functions:
- * - submitForm
- * - clearError
- * - reset
- * - validateVM
- * - sanitizeVMData
- * - handleSubmit
- * - handleCancel
  */
 
 import { writable } from 'svelte/store';
-import { storesContainer } from './StoresContainer.js';
-let vmStore;
+import { getVMStore } from '$lib/state/stores.state.svelte.js';
 
 /**
  * Create VM form store with state management
@@ -24,35 +14,32 @@ let vmStore;
 function createVMFormStore() {
   const { subscribe, set, update } = writable({
     loading: false,
-    error: null
+    error: null,
+    showForm: false,
+    editingVM: null
   });
 
   return {
     subscribe,
 
-
-
-
     /**
-     * Submit VM form data
-     * @param {Object} vmData - VM form data
-     * @param {boolean} isEdit - Whether this is an edit operation
+     * Submit form data
      */
     async submitForm(vmData, isEdit = false) {
       update(state => ({ ...state, loading: true, error: null }));
 
       try {
         let result;
+        const vmStore = getVMStore();
+        
         if (isEdit) {
           const editingVM = get(this).editingVM;
           if (!editingVM) {
             throw new Error('No VM selected for editing');
           }
-          if (!vmStore) vmStore = await storesContainer.get('vmStore');
           result = await vmStore.updateVM(editingVM.id, vmData);
           console.log("✅ VM updated successfully");
         } else {
-          if (!vmStore) vmStore = await storesContainer.get('vmStore');
           result = await vmStore.createVM(vmData);
           console.log("✅ VM created successfully");
         }
@@ -69,6 +56,37 @@ function createVMFormStore() {
       } finally {
         update(state => ({ ...state, loading: false }));
       }
+    },
+
+    /**
+     * Show form for editing
+     */
+    showEditForm(vm) {
+      set({
+        showForm: true,
+        editingVM: vm,
+        loading: false,
+        error: null
+      });
+    },
+
+    /**
+     * Show form for creating
+     */
+    showCreateForm() {
+      set({
+        showForm: true,
+        editingVM: null,
+        loading: false,
+        error: null
+      });
+    },
+
+    /**
+     * Hide form
+     */
+    hideForm() {
+      update(state => ({ ...state, showForm: false }));
     },
 
     /**
@@ -108,8 +126,6 @@ export const vmFormStore = createVMFormStore();
 export const vmFormValidation = {
   /**
    * Validate VM form data
-   * @param {Object} vmData - VM data to validate
-   * @returns {Object} Validation result
    */
   validateVM(vmData) {
     const errors = [];
@@ -126,7 +142,6 @@ export const vmFormValidation = {
       errors.push('Username is required');
     }
 
-    // Additional validation rules
     if (vmData.name && vmData.name.length < 2) {
       errors.push('VM name must be at least 2 characters long');
     }
@@ -147,8 +162,6 @@ export const vmFormValidation = {
 
   /**
    * Sanitize VM form data
-   * @param {Object} vmData - Raw form data
-   * @returns {Object} Sanitized VM data
    */
   sanitizeVMData(vmData) {
     return {
@@ -165,19 +178,13 @@ export const vmFormValidation = {
 };
 
 /**
- * VM Form event handlers
- * Provides standardized event handling for VM forms
+ * Form handling utilities
  */
 export const vmFormHandlers = {
   /**
    * Handle form submission
-   * @param {Event} event - Form submit event
-   * @param {Function} onSuccess - Success callback
-   * @param {Function} onError - Error callback
    */
-  async handleSubmit(event, onSuccess, onError) {
-    const { vmData, isEdit } = event.detail;
-    
+  async handleSubmit(vmData, isEdit = false, { onSuccess, onError } = {}) {
     try {
       // Validate data
       const validation = vmFormValidation.validateVM(vmData);
@@ -206,6 +213,5 @@ export const vmFormHandlers = {
    */
   handleCancel() {
     vmFormStore.hideForm();
-  },
-
+  }
 };

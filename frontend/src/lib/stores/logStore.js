@@ -1,5 +1,5 @@
 /**
- * store for log lines of jobs
+ * Log Store - Direct instance implementation
  *
  * - used in JobLogModal.svelte
  *
@@ -8,37 +8,55 @@
  * -> thus integrated in JobService
  */
 
-import { createBaseStore } from "./crudStore.js";
-import { createStoreFactory } from "./storeFactoryTemplate.js";
+import { getService } from "$lib/core/ServiceContainer.js";
+import { createCRUDStore } from "./crudStore.js";
 
-const initialStateLog = { linesByJob: {} };
+const initialState = {
+   logs: null,
+   loading: false,
+   error: null,
+};
 
-function logStoreLogic(baseStore, _deps) {
-   function addLogLine(jobId, line) {
-      if (!jobId || !line) return;
-      baseStore.update((state) => {
-         const lines = state.linesByJob[jobId] || [];
-         return {
+// Get logService from ServiceContainer
+const logService = getService("logService");
+const store = createCRUDStore(initialState);
+
+const logStore = {
+   ...store,
+
+   async loadLogs(jobId) {
+      store.update((state) => ({ ...state, loading: true, error: null }));
+
+      try {
+         const logs = await logService.fetchLogsForJob(jobId);
+         store.update((state) => ({
             ...state,
-            linesByJob: {
-               ...state.linesByJob,
-               [jobId]: [...lines, { ...line, jobId }],
-            },
-         };
-      });
-   }
-   function setLogsForJob(jobId, logs) {
-      baseStore.update((s) => ({
-         ...s,
-         linesByJob: { ...s.linesByJob, [jobId]: logs },
-      }));
-   }
-   function getLogLinesForJob(jobId) {}
-   return { ...baseStore, addLogLine, getLogLinesForJob, setLogsForJob };
-}
+            logs,
+            loading: false,
+            error: null,
+         }));
+         console.log("Logs loaded:", logs.length);
+         return logs;
+      } catch (error) {
+         console.error("Failed to load logs:", error);
+         store.update((state) => ({
+            ...state,
+            loading: false,
+            error: error.message,
+         }));
+         throw error;
+      }
+   },
 
-export const createLogStoreFactory = createStoreFactory(
-   "LogStore",
-   initialStateLog,
-   logStoreLogic
-);
+   getLogs() {
+      return store.getState().logs;
+   },
+
+   getLogLinesForJob(jobId) {
+      return store.getState().logs;
+   },
+};
+
+export function createLogStore() {
+   return logStore;
+}
