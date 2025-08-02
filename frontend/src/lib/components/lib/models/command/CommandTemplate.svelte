@@ -1,23 +1,17 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
   import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/lib/ui/card';
   import { Badge } from '$lib/components/lib/ui/badge';
+  import { setSelectedTemplateCmd } from '$lib/state/ui.state.svelte.js';
+  import { typeConfig } from './commandConfig.js';
 
   let { template } = $props();
-  const dispatch = createEventDispatcher();
 
-  function handleClick() {
-    dispatch('select');
+  function handleSelect() {
+    setSelectedTemplateCmd(template);
   }
-
-  const typeConfig = {
-    ssh: { variant: 'default', label: 'SSH' },
-    stream: { variant: 'secondary', label: 'Local' },
-    terminal: { variant: 'outline', label: 'Terminal' }
-  };
 </script>
 
-<Card class="cursor-pointer hover:shadow-md transition-shadow" onclick={handleClick}>
+<Card class="cursor-pointer hover:shadow-md transition-shadow" onclick={handleSelect}>
   <CardHeader class="pb-2">
     <div class="flex items-center justify-between">
       <CardTitle class="text-base">{template.name}</CardTitle>

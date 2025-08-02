@@ -178,12 +178,21 @@ export class ServiceContainer {
 
          // Initialize job socket service BEFORE connecting to ensure it receives core:connected event
          const jobSocketService = this.get("jobSocketService");
+         const jobService = this.get("jobService");
 
          // Connect WebSocket
          wsClient.connect();
 
          // Wait for WebSocket connection (with timeout)
          await this.waitForWebSocketConnection(wsClient, 10000);
+
+         // Connect jobStore to jobService for real-time updates
+         const { getJobStore } = await import("$lib/state/stores.state.svelte.js");
+         const jobStore = getJobStore();
+         if (jobStore) {
+            jobService.setJobStore(jobStore);
+            console.log("🔗 Connected jobStore to jobService");
+         }
 
          this.initialized = true;
          console.log("✅ Service container initialized");

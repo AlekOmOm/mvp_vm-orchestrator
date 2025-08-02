@@ -12,8 +12,6 @@
   async function handleRefreshVMs() {
     await vmStore?.loadVMs(true);
   }
-
-  console.log('vmmanagement loaded');
 </script>
 
 <div class="h-full flex flex-col">

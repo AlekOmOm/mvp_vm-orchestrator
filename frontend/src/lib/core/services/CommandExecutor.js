@@ -72,6 +72,8 @@ export class CommandExecutor {
     * @returns {Promise<string>} Job ID for tracking
     */
    async executeCommand(selectedVM, command, options = {}) {
+      console.log("[CommandExecutor] Executing command:", command);
+      console.log("[CommandExecutor] Selected VM:", selectedVM);
       // Validation
       if (!selectedVM) {
          throw new Error("VM not selected");

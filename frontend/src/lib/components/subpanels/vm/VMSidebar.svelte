@@ -4,33 +4,27 @@
 
 <script>
   import VM from '$lib/components/lib/models/vm/VM.svelte';
+   import Grid from '$lib/components/lib/ui/Grid.svelte';
   import { getVMStore } from '$lib/state/stores.state.svelte.js';
-  import { getSelectedVM } from '$lib/state/ui.state.svelte.js';
+  import { getRecentVMs, getSelectedVM } from '$lib/state/ui.state.svelte.js';
+   import { SignalZero } from '@lucide/svelte';
 
+  const selectedVM = $derived(getSelectedVM());
   const vmStore = $derived(getVMStore());
   const vms = $derived(vmStore?.vms || null);
-  const selectedVM = $derived(getSelectedVM());
+  let recentVMs = $derived(vms ? getRecentVMs(vms) : []);
 
-  let sortedVMs = $state([]);
- 
-  function computeSortedVMs() {
-    if (!vms || !Array.isArray(vms)) return []
-    if (!selectedVM) return [...vms]
-
-    const first = vms.find((vm) => vm.id === selectedVM.id)
-    if (!first) return [...vms]
-    
-    return [first, ...vms.filter((vm) => vm.id !== selectedVM.id)]
-  }
-
+  // effect on selectedVM -> update recentVMs by getRecentVMs call
   $effect(() => {
-    sortedVMs = computeSortedVMs()
-  }) 
+    if (selectedVM) {
+       recentVMs = getRecentVMs(vms);
+    }
+  });
 
 </script>
 
 <aside class="w-full h-full bg-background border-r border-border overflow-y-auto">
-  <div class="p-2">
+  <div class="p-2 h-full">
     {#if !vms}
       <div class="text-center py-4">
         <p class="text-xs text-muted-foreground">Loading VMs...</p>
@@ -41,15 +35,17 @@
       </div>
     {:else}
       <div class="space-y-1">
-        {#if sortedVMs.length === 0}
-          {#each vms as vm (vm.id) }
-            <VM {vm} />
-          {/each}
-        {:else}
-          {#each sortedVMs as vm (vm.id)}
-            <VM {vm} />
-          {/each}
-        {/if}
+        <Grid minWidth="20vw">
+          {#if recentVMs.length === 0}
+            {#each vms as vm (vm.id) }
+              <VM {vm} size="small" />
+            {/each}
+          {:else}
+            {#each recentVMs as vm (vm.id)}
+              <VM {vm} size="small"/>
+            {/each}
+          {/if}
+        </Grid>
       </div>
     {/if}
   </div>

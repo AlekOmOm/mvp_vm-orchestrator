@@ -34,11 +34,16 @@ export function initStores() {
    initPromise = (async () => {
       const vmService = getService("vmService");
       const commandService = getService("commandService");
+      const commandExecutor = getService("commandExecutor");
+
+      console.log('🏪 Initializing stores with services:', { vmService, commandService, commandExecutor });
 
       _vmStore = createVMStore({ vmService });
-      _commandStore = createCommandStore({ commandService, vmService });
+      _commandStore = createCommandStore({ commandService, vmService, commandExecutor });
       _jobStore = createJobStore();
       _logStore = createLogStore();
+
+      console.log('🏪 Stores initialized. CommandStore methods:', Object.keys(_commandStore));
    })();
    return initPromise;
 }

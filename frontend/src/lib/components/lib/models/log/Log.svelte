@@ -21,11 +21,10 @@
 
 <style>
   .log-container {
-    max-height: 30vh;
     background: #f9f9f9;
     font-family: monospace;
     font-size: 12px;
     overflow-y: auto;
-    padding: 8px;
+    padding: 4vh;
   }
 </style> 

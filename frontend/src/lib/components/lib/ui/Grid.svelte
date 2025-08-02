@@ -8,7 +8,7 @@
 <script>
   let {
     variant = 'auto-fit', // 'auto-fit' | 'auto-fill' | 'responsive' | 'fixed'
-    cols = 3, // For fixed variant
+    cols = 4, // For fixed variant
     minWidth = '280px', // Minimum column width for auto variants
     gap = '1rem',
     class: className = '',
@@ -20,7 +20,7 @@
   const variantClasses = {
     'auto-fit': 'grid-auto-fit',
     'auto-fill': 'grid-auto-fill', 
-    'responsive': 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3',
+    'responsive': 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
     'fixed': `grid grid-cols-${cols}`
   };
 

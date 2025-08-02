@@ -9,6 +9,8 @@ let _selectedVMId = $state(localStorage.getItem("lastSelectedVMId"));
 let _selectedVM = $state(null);
 let _selectedVMCommands = $state([]);
 let _selectedVMJobs = $state([]);
+let _selectedTemplateCmd = $state(null);
+let _logLines = $state([]);
 
 // vm being edited
 let _editingVM = $state(null);
@@ -23,11 +25,9 @@ let _editingCommand = $state(null);
 
 /* ── public read-only accessors ── */
 export function getSelectedVMId() {
-   console.log("🔍 getSelectedVMId called:", _selectedVMId);
    return _selectedVMId;
 }
 export function getSelectedVM() {
-   console.log("🔍 getSelectedVM called:", _selectedVM?.name || "undefined");
    if (_selectedVMId === undefined) {
       return null;
    }
@@ -48,8 +48,9 @@ export function getEditingVM() {
 export function getIsEditingVMCommands() {
    return _isEditingVMCommands;
 }
-
-// Add command-specific state getters
+export function getSelectedTemplateCmd() {
+   return _selectedTemplateCmd;
+}
 export function getSelectedCommand() {
    return _selectedCommand;
 }
@@ -57,23 +58,38 @@ export function getSelectedCommand() {
 export function getEditingCommand() {
    return _editingCommand;
 }
+export function getLogLines() {
+   return _logLines;
+}
 
 /* ── public actions that mutate state ── */
+// select functions
 export function selectVM(id) {
-   console.log("selectVM:", id);
    _selectedVMId = id;
    if (id) localStorage.setItem("lastSelectedVMId", id);
    else localStorage.removeItem("lastSelectedVMId");
+
+   addRecentVM(id);
 
    // Immediate refresh
    refreshSelectedVM(id);
 }
 
-// Command selection actions
 export function selectCommand(commandId) {
    _selectedCommand = commandId;
 }
 
+export function setSelectedTemplateCmd(template) {
+   _selectedTemplateCmd = template;
+}
+export function setLogLines(lines) {
+   _logLines = lines;
+}
+export function addLogLine(line) {
+   _logLines = [..._logLines, ...line];
+}
+
+// -------
 // modal state change
 export function openModal() {
    _modalOpen = true;
@@ -129,20 +145,15 @@ let vmStore, commandStore, jobStore;
 let storesAttached = false;
 
 export function attachStores({ vmStoreRef, commandStoreRef, jobStoreRef }) {
-   if (storesAttached) {
-      console.log("⚠️ attachStores already called, skipping");
-      return;
-   }
+   if (storesAttached) return;
 
-   console.log("🔗 attachStores called");
    vmStore = vmStoreRef;
    commandStore = commandStoreRef;
    jobStore = jobStoreRef;
-   storesAttached = true;
+   storesAttached = true; // prevent multiple calls
 
    /* if a VM was already chosen before the stores existed, refresh it */
    if (_selectedVMId) {
-      console.log("🔄 Refreshing pre-selected VM:", _selectedVMId);
       refreshSelectedVM(_selectedVMId);
    }
 }
@@ -151,24 +162,17 @@ export function attachStores({ vmStoreRef, commandStoreRef, jobStoreRef }) {
 let lastId = null;
 $effect.root(() => {
    $effect(() => {
-      console.log("🔍 UI State effect triggered - vmStore exists:", !!vmStore);
-      console.log(
-         "🔍 UI State effect triggered - _selectedVMId:",
-         _selectedVMId
-      );
-
       if (!vmStore || !commandStore || !jobStore || !_selectedVMId) return;
 
       if (_selectedVMId !== lastId) {
          lastId = _selectedVMId;
-         console.log("🔄 Selected VM ID changed to:", _selectedVMId);
 
          /* 1. synchronous data that might be cached */
          _selectedVM = vmStore.getVMById(_selectedVMId);
-         console.log("✅ Selected VM updated:", _selectedVM?.name);
 
          _selectedVMCommands = commandStore.getCommandsForVM(_selectedVMId);
          _selectedVMJobs = jobStore.getVMJobs?.(_selectedVMId) ?? [];
+         _logLines = jobStore.getLogLines?.(_selectedVMId) ?? [];
 
          /* 2. async refreshes (fire-and-forget, update when done) */
          commandStore.loadVMCommands(_selectedVMId).then(() => {
@@ -186,8 +190,6 @@ $effect.root(() => {
 function refreshSelectedVM(id) {
    if (!vmStore || !commandStore || !jobStore) return;
 
-   console.log("🔄 Refreshing selected VM:", id);
-
    // Immediate sync data
    _selectedVM = vmStore.getVMById(id);
    _selectedVMCommands = commandStore.getCommandsForVM(id);
@@ -197,11 +199,48 @@ function refreshSelectedVM(id) {
    if (id) {
       commandStore.loadVMCommands(id).then(() => {
          _selectedVMCommands = commandStore.getCommandsForVM(id);
-         console.log(
-            "✅ Commands loaded for VM:",
-            id,
-            _selectedVMCommands.length
-         );
       });
    }
+}
+
+// --------------------- helper ------------------------
+// recent VMs
+export function getRecentVMs(vms) {
+   const ids = _getRecentVMIds();
+   if (!Array.isArray(vms)) return ids;
+   return _sortVMsByRecent(vms, ids);
+}
+
+function addRecentVM(vmId) {
+   const ids = _getRecentVMIds();
+   const idx = ids.indexOf(vmId);
+   if (idx !== -1) ids.splice(idx, 1);
+   ids.unshift(vmId);
+   localStorage.setItem("recentVMs", JSON.stringify(ids));
+}
+
+function _getRecentVMIds() {
+   const json = localStorage.getItem("recentVMs");
+   return json ? JSON.parse(json) : [];
+}
+
+function _sortVMsByRecent(vms, recentIds) {
+   const recentSet = new Set(recentIds);
+   const recentVMs = vms.filter((vm) => recentSet.has(vm.id));
+   const otherVMs = vms.filter((vm) => !recentSet.has(vm.id));
+
+   // Sort recent VMs by their position in recentIds array
+   const sortedRecent = recentVMs.sort((a, b) => {
+      return recentIds.indexOf(a.id) - recentIds.indexOf(b.id);
+   });
+
+   const result = [...sortedRecent, ...otherVMs];
+   return result;
+}
+
+export async function initializedUIState() {
+   return new Promise((resolve) => {
+      refreshSelectedVM(_selectedVMId);
+      resolve();
+   });
 }

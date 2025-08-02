@@ -1,27 +1,33 @@
 <script>
-  import { Button } from '$lib/components/lib/ui/button';
+import { Button } from '$lib/components/lib/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/lib/ui/card';
-  import { AlertTriangle, X } from 'lucide-svelte';
+import { AlertTriangle, X } from 'lucide-svelte';
 
-  let { command, onConfirm, onCancel } = $props();
+// state - centralized command UI state
+import { 
+  getDeletingCommandId, 
+  stopDeleteCommand, 
+  isDeletingCommand 
+} from '$lib/state/ui.command.state.svelte.js';
 
-  let loading = $state(false);
+// Props - standardized interface
+let { command, onConfirm } = $props();
 
-  async function handleConfirm() {
-    loading = true;
-    try {
-      await onConfirm();
-    } finally {
-      loading = false;
-    }
-  }
+// Centralized state access
+const deletingCommandId = $derived(getDeletingCommandId());
+const isOpen = $derived(isDeletingCommand(command.id));
 
-  function handleCancel() {
-    onCancel();
-  }
+async function handleConfirm() {
+  await onConfirm();
+  stopDeleteCommand();
+}
+
+function handleCancel() {
+  stopDeleteCommand();
+}
 </script>
 
-{#if command}
+{#if isOpen}
   <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <Card class="w-full max-w-md mx-4">
       <CardHeader>
@@ -51,13 +57,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/lib/ui
         </div>
 
         <div class="flex justify-end gap-3 pt-4">
-          <Button variant="outline" onclick={handleCancel} disabled={loading}>
+          <Button variant="outline" onclick={handleCancel}>
             Cancel
           </Button>
-          <Button variant="destructive" onclick={handleConfirm} disabled={loading}>
-            {#if loading}
-              <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-            {/if}
+          <Button variant="destructive" onclick={handleConfirm}>
             Delete Command
           </Button>
         </div>

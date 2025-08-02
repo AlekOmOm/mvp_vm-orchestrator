@@ -1,26 +1,73 @@
 <script>
-  import { Button } from '$lib/components/lib/ui/button';
+import { Button } from '$lib/components/lib/ui/button';
 import { Input } from '$lib/components/lib/ui/input';
 import { Label } from '$lib/components/lib/ui/label';
 import { Textarea } from '$lib/components/lib/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/lib/ui/card';
-  import { X, Terminal } from 'lucide-svelte';
+import { X, Terminal, Loader2 } from 'lucide-svelte';
 
-  // Props - standardized interface
-  let { command, isOpen = $bindable(false), onSave, onCancel } = $props();
+// state - centralized command UI state
+import { 
+  getEditingCommandId, 
+  stopEditCommand, 
+  isEditingCommand 
+} from '$lib/state/ui.command.state.svelte.js';
 
-  // Form state
-  let formData = $state({
-    name: command?.name || '',
-    cmd: command?.cmd || '',
-    type: command?.type || 'ssh',
-    description: command?.description || '',
-    timeout: command?.timeout || 30000
-  });
+// Props - standardized interface
+let { command, onSave  } = $props();
 
-  async function handleSubmit() {
-    await onSave(formData);
+// Centralized state access
+const editingCommandId = $derived(getEditingCommandId());
+const isOpen = $derived(isEditingCommand(command.id));
+
+// Form state
+let formData = $state({
+  name: command?.name || '',
+  cmd: command?.cmd || '',
+  type: command?.type || 'ssh',
+  description: command?.description || '',
+  timeout: command?.timeout || 30000
+});
+
+// Local UI state
+let loading = $state(false);
+let error = $state('');
+
+// Reset form when modal opens
+$effect(() => {
+  if (isOpen) {
+    formData = {
+      name: command?.name || '',
+      cmd: command?.cmd || '',
+      type: command?.type || 'ssh',
+      description: command?.description || '',
+      timeout: command?.timeout || 30000
+    };
+    error = ''; // Clear any previous errors
+    loading = false;
   }
+});
+
+async function handleSubmit() {
+  if (loading) return;
+  
+  loading = true;
+  error = '';
+  
+  try {
+    await onSave(formData);
+    stopEditCommand();
+  } catch (err) {
+    console.error('Failed to update command:', err);
+    error = err.message || 'Failed to update command';
+  } finally {
+    loading = false;
+  }
+}
+
+function handleCancel() {
+  stopEditCommand();
+}
 </script>
 
 {#if isOpen}
@@ -106,7 +153,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/lib/ui
           </Button>
           <Button onclick={handleSubmit} disabled={loading}>
             {#if loading}
-              <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+              <Loader2 class="w-4 h-4 animate-spin mr-2" />
             {/if}
             Update Command
           </Button>

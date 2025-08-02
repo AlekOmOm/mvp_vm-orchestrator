@@ -7,25 +7,25 @@
 
 <script>
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from '$lib/components/lib/ui/dialog';
-import { Button } from '$lib/components/lib/ui/button';
-import { Terminal, Plus, Loader2 } from 'lucide-svelte';
-import TemplateCard from '$lib/components/lib/models/command/TemplateCard.svelte';
-import { Input } from '$lib/components/lib/ui/input';
-import { Textarea } from '$lib/components/lib/ui/textarea';
-import { Label as FormLabel } from '$lib/components/lib/ui/label';
-  import { getSelectedVM } from '$lib/state/ui.state.svelte.js';
+  import { Button } from '$lib/components/lib/ui/button';
+  import { Terminal, Plus, Loader2 } from 'lucide-svelte';
+  import CommandTemplate from '$lib/components/lib/models/command/CommandTemplate.svelte';
+  import { Input } from '$lib/components/lib/ui/input';
+  import { Textarea } from '$lib/components/lib/ui/textarea';
+  import { Label as FormLabel } from '$lib/components/lib/ui/label';
+  import { getSelectedVM, getSelectedTemplateCmd } from '$lib/state/ui.state.svelte.js';
   import { getCommandStore } from '$lib/state/stores.state.svelte.js';
 
   // Props
   let { 
     isOpen = $bindable(false), 
-    onclose = () => {}, 
-    oncommandcreated = () => {} 
+    onclose = () => {} 
   } = $props();
 
-  // Use new getter pattern
+  // State access
   const selectedVM = $derived(getSelectedVM());
   const commandStore = $derived(getCommandStore());
+  const selectedTemplateCmd = $derived(getSelectedTemplateCmd());
 
   // Available templates from command store
   let availableTemplatesArray = $state([]);
@@ -62,13 +62,17 @@ import { Label as FormLabel } from '$lib/components/lib/ui/label';
     return cmd.split(/\r?\n/).map(line => line.trim()).filter(Boolean).join(' ').trim();
   }
 
-  function selectTemplate(template) {
-    formData.name = template.name;
-    formData.cmd = template.cmd;
-    formData.type = template.type;
-    formData.description = template.description;
-    formData.timeout = template.timeout || 30000;
-  }
+  $effect(() => {
+    if (selectedTemplateCmd) {
+      formData = {
+        name: selectedTemplateCmd.name,
+        cmd: selectedTemplateCmd.cmd,
+        type: selectedTemplateCmd.type,
+        description: selectedTemplateCmd.description,
+        timeout: selectedTemplateCmd.timeout || 30000
+      };
+    }
+  });
 
   const isFormValid = $derived(
     formData.name.trim().length > 0 && 
@@ -88,10 +92,6 @@ import { Label as FormLabel } from '$lib/components/lib/ui/label';
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (!selectedVM) {
-      errorMessage = 'Please select a VM first';
-      return;
-    }
 
     if (!isFormValid) {
       errorMessage = 'Name and command are required';
@@ -112,7 +112,6 @@ import { Label as FormLabel } from '$lib/components/lib/ui/label';
 
       await commandStore.createCommand(selectedVM.id, commandData);
 
-      oncommandcreated();
       resetForm();
       onclose();
     } catch (error) {
@@ -134,13 +133,13 @@ import { Label as FormLabel } from '$lib/components/lib/ui/label';
   }
 </script>
 
-<Dialog bind:open={isOpen}>
-  <DialogContent class="sm:max-w-4xl max-h-[80vh]">
+<Dialog bind:open={isOpen} class="overflow-y-auto max-w-[90vw]" >
+  <DialogContent class="sm:max-w-4xl max-h-[80vh] max-w-[90vw]">
     <DialogHeader>
       <DialogTitle>Add New Command</DialogTitle>
     </DialogHeader>
     
-    <div class="flex h-[60vh] gap-4">
+    <div class="flex h-[60vh] gap-4 overflow-y-auto">
       <!-- Available Templates -->
       <div class="w-1/2 border-r pr-4 overflow-y-auto">
         <h3 class="text-lg font-medium mb-4">Available Templates</h3>
@@ -148,7 +147,7 @@ import { Label as FormLabel } from '$lib/components/lib/ui/label';
         {#if availableTemplatesArray.length > 0}
           <div class="space-y-3">
             {#each availableTemplatesArray as template (template.id)}
-              <TemplateCard {template} onselect={() => selectTemplate(template)} />
+              <CommandTemplate {template} />
             {/each}
           </div>
         {:else}
@@ -162,7 +161,7 @@ import { Label as FormLabel } from '$lib/components/lib/ui/label';
       <!-- Command Form -->
       <div class="w-1/2 pl-4">
         <form onsubmit={handleSubmit} class="space-y-4">
-          <div class="space-y-2">
+          <div class="input-group">
             <FormLabel for="name">Command Name *</FormLabel>
             <Input
               id="name"
@@ -172,7 +171,7 @@ import { Label as FormLabel } from '$lib/components/lib/ui/label';
             />
           </div>
 
-          <div class="space-y-2">
+          <div class="input-group">
             <FormLabel for="cmd">Command *</FormLabel>
             <Textarea
               id="cmd"
@@ -183,7 +182,7 @@ import { Label as FormLabel } from '$lib/components/lib/ui/label';
             />
           </div>
 
-          <div class="space-y-2">
+          <div class="input-group">
             <FormLabel for="type">Execution Type</FormLabel>
             <select
               id="type"
@@ -195,7 +194,7 @@ import { Label as FormLabel } from '$lib/components/lib/ui/label';
             </select>
           </div>
 
-          <div class="space-y-2">
+          <div class="input-group">
             <FormLabel for="description">Description</FormLabel>
             <Textarea
               id="description"
@@ -205,7 +204,7 @@ import { Label as FormLabel } from '$lib/components/lib/ui/label';
             />
           </div>
 
-          <div class="space-y-2">
+          <div class="input-group">
             <FormLabel for="timeout">Timeout (ms)</FormLabel>
             <Input
               id="timeout"
@@ -241,3 +240,8 @@ import { Label as FormLabel } from '$lib/components/lib/ui/label';
     </div>
   </DialogContent>
 </Dialog>
+
+<style>
+  .input-group {
+  }
+</style>

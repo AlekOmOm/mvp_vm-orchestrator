@@ -2,6 +2,37 @@ export class JobService {
    constructor(jobSocketService, apiClient) {
       this.socket = jobSocketService;
       this.apiClient = apiClient;
+      this.jobStore = null; // Will be set by ServiceContainer
+   }
+
+   /**
+    * Set job store reference for real-time updates
+    */
+   setJobStore(jobStore) {
+      this.jobStore = jobStore;
+      
+      // Connect WebSocket service callbacks to jobStore
+      this.socket.setJobCallbacks({
+         onJobStarted: (job) => {
+            console.log("🔄 JobService: Adding started job to store:", job);
+            this.jobStore.addJob({
+               ...job,
+               status: "running",
+               started_at: job.startedAt,
+            });
+            this.jobStore.setCurrentJob(job);
+         },
+         onJobCompleted: (jobId, updates) => {
+            console.log("🔄 JobService: Updating completed job:", jobId, updates);
+            this.jobStore.updateJob(jobId, updates);
+            this.jobStore.setCurrentJob(null);
+         },
+         onJobHistoryLoaded: (jobs) => {
+            console.log("🔄 JobService: Loading job history to store:", jobs.length);
+            // Update the store's jobs array directly
+            this.jobStore.setJobs(jobs);
+         }
+      });
    }
 
    getCurrentJob() {
@@ -15,6 +46,7 @@ export class JobService {
    }
 
    getConnectionStatus() {
+      console.log("[JobService] getConnectionStatus");
       return this.socket.getConnectionStatus();
    }
 
@@ -45,7 +77,7 @@ export class JobService {
    async fetchJobs(options = {}) {
       const params = new URLSearchParams();
       if (options.limit) params.append("limit", options.limit);
-      
+
       const query = params.toString() ? `?${params.toString()}` : "";
       return this.apiClient.get(`/api/jobs${query}`);
    }
@@ -57,7 +89,7 @@ export class JobService {
    async fetchJobLogs(jobId, options = {}) {
       const params = new URLSearchParams();
       if (options.limit) params.append("limit", options.limit);
-      
+
       const query = params.toString() ? `?${params.toString()}` : "";
       return this.apiClient.get(`/api/jobs/${jobId}/logs${query}`);
    }
@@ -66,7 +98,7 @@ export class JobService {
       const params = new URLSearchParams();
       if (options.limit) params.append("limit", options.limit);
       if (options.status) params.append("status", options.status);
-      
+
       const query = params.toString() ? `?${params.toString()}` : "";
       return this.apiClient.get(`/api/vms/${vmId}/jobs${query}`);
    }

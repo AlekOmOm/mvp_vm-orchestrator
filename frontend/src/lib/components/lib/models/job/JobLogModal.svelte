@@ -1,29 +1,43 @@
 <!--
-  Job Log Modal Component
-
-  Enhanced log viewer with better error handling and loading states.
-  Uses jobService directly to avoid circular dependency issues.
+  Job Log Modal Component - Enhanced with logStore integration
 -->
 
 <script>
-import { getService } from '$lib/core/ServiceContainer';
+import { getLogStore } from '$lib/state/stores.state.svelte.js';
+import Log from '$lib/components/lib/models/log/Log.svelte';
+import { Button } from '$lib/components/lib/ui/button';
+import { X } from 'lucide-svelte';
+
 let { job = null, isOpen = false, onClose = () => {} } = $props();
-let logLines = $state([]);
+
+const logStore = $derived(getLogStore());
+const logLines = $derived(logStore.logs || []);
+const loading = $derived(logStore.loading);
 
 $effect(async () => {
   if (isOpen && job?.id) {
-    const jobService = getService('jobService');
-    logLines = await jobService.fetchJobLogs(job.id);
+    await logStore.loadLogs(job.id);
   }
 });
 </script>
 
 {#if isOpen}
-  <div style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
-    <div style="background:white;padding:1rem;max-width:80vw;max-height:80vh;overflow:auto;">
-      <button onclick={onClose}>Close</button>
-      <h3>Logs</h3>
-      <pre>{#each logLines as line}{line.data}\n{/each}</pre>
+  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-background border rounded-lg max-w-4xl max-h-[80vh] w-full mx-4 flex flex-col">
+      <div class="flex items-center justify-between p-4 border-b">
+        <h3 class="text-lg font-semibold">Job Logs - {job?.command?.slice(0, 50) || 'Unknown'}</h3>
+        <Button variant="ghost" size="sm" onclick={onClose}>
+          <X class="w-4 h-4" />
+        </Button>
+      </div>
+      
+      <div class="flex-1 overflow-hidden">
+        {#if loading}
+          <div class="p-4 text-center">Loading logs...</div>
+        {:else}
+          <Log {logLines} class="h-full" />
+        {/if}
+      </div>
     </div>
   </div>
 {/if}

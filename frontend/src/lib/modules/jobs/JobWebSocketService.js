@@ -53,29 +53,23 @@ export class JobWebSocketService {
 
          this.triggerEventHandlers("job:started", current);
 
-         // Update global job store
-         try {
-            const normalized = {
-               ...current,
-               vmId: data.hostAlias || data.vmId,
-            };
-            // TODO: Refactor to use dependency injection or event emission
-            // jobStore.setCurrentJob(normalized);
-            // jobStore.addJob({
-            //    ...normalized,
-            //    status: "running",
-            //    started_at: normalized.startedAt,
-            // });
-         } catch (_) {}
+         // Update global job store via callback
+         if (this.onJobStarted) {
+            this.onJobStarted(current);
+         }
       });
 
       this.wsClient.on("job:log", (data) => {
-         // TODO: Refactor to use dependency injection or event emission
-         // logStore.addLogLine(data.jobId, {
-         //    stream: data.stream,
-         //    data: data.chunk,
-         //    timestamp: data.timestamp || new Date().toISOString(),
-         // });
+         // Append log line to in-memory store
+         this.logLines.update((lines) => [
+            ...lines,
+            {
+               jobId: data.jobId,
+               stream: data.stream,
+               data: data.chunk,
+               timestamp: data.timestamp || new Date().toISOString(),
+            },
+         ]);
 
          this.triggerEventHandlers("job:log", data);
       });
@@ -112,19 +106,13 @@ export class JobWebSocketService {
          this.currentJob.set(null);
          this.triggerEventHandlers(eventName, { ...data, status: finalStatus });
 
-         // TODO: Refactor to use dependency injection or event emission
-         try {
-            // jobStore.updateJob(data.jobId, {
-            //    status: finalStatus,
-            //    exit_code: data.exitCode || data.exit_code,
-            //    finished_at:
-            //       data.timestamp ||
-            //       data.finished_at ||
-            //       new Date().toISOString(),
-            // });
-            // jobStore.setCurrentJob(null);
-         } catch (error) {
-            console.error("Error updating job in store:", error);
+         // Update global jobStore via callback
+         if (this.onJobCompleted) {
+            this.onJobCompleted(data.jobId, {
+               status: finalStatus,
+               exitCode: data.exitCode || data.exit_code,
+               finished_at: data.timestamp || data.finished_at || new Date().toISOString(),
+            });
          }
       };
 
@@ -322,17 +310,36 @@ export class JobWebSocketService {
             const jobs = await this.apiClient.get("/api/jobs?limit=10");
             this.jobs.set(jobs);
             console.log("📚 Job history loaded:", jobs.length, "jobs");
+            
+            // Update global jobStore via callback if provided
+            if (this.onJobHistoryLoaded) {
+               this.onJobHistoryLoaded(jobs);
+            }
          } else {
             const response = await fetch("/api/jobs?limit=10");
             if (response.ok) {
                const jobs = await response.json();
                this.jobs.set(jobs);
                console.log("📚 Job history loaded:", jobs.length, "jobs");
+               
+               // Update global jobStore via callback if provided
+               if (this.onJobHistoryLoaded) {
+                  this.onJobHistoryLoaded(jobs);
+               }
             }
          }
       } catch (error) {
          console.error("Failed to load job history:", error);
       }
+   }
+
+   /**
+    * Set callbacks for job events
+    */
+   setJobCallbacks({ onJobStarted, onJobCompleted, onJobHistoryLoaded }) {
+      this.onJobStarted = onJobStarted;
+      this.onJobCompleted = onJobCompleted;
+      this.onJobHistoryLoaded = onJobHistoryLoaded;
    }
 
    /**

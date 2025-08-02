@@ -10,6 +10,8 @@
   import { getSelectedVM, getSelectedVMCommands } from '$lib/state/ui.state.svelte.js';
   import { getJobStore } from '$lib/state/stores.state.svelte.js';
   import { getCommandStore } from '$lib/state/stores.state.svelte.js';
+  import Command from '$lib/components/lib/models/command/Command.svelte';
+   import Grid from '../../ui/Grid.svelte';
 
   // ---------------------------
   // stores
@@ -24,12 +26,14 @@
   // derived state
   const selectedVM = $derived(getSelectedVM());
   const vmCommands = $derived(getSelectedVMCommands());
-  const isExecuting = $derived(commandExecutor.getIsExecuting());
+  const isExecutingStore = commandExecutor.getIsExecuting();
+  const isExecuting = $derived($isExecutingStore);
   const isConnected = $derived(jobService.isConnected);
 
   // ---------------------------
   // functions
   async function executeCommand(command) {
+    console.log('Executing command:', command);
     if (isExecuting || !isConnected || !selectedVM) return;
 
     try {
@@ -57,8 +61,16 @@
       </div>
     </div>
   {:else}
+
     <div class="space-y-3">
       <h3 class="font-semibold">Commands for {selectedVM.name}</h3>
+      <Grid>
+        {#each vmCommands as command}
+          <Command {command} />
+        {/each}
+      </Grid>
+
+       <!--
       {#each vmCommands as command}
         <Button
           variant="outline"
@@ -82,6 +94,8 @@
           </div>
         </Button>
       {/each}
+      -->
+
     </div>
   {/if}
 </div>

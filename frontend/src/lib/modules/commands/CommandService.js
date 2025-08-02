@@ -20,17 +20,22 @@ export class CommandService {
    }
 
    async updateCommand(id, updates) {
+      console.log("🔄 [CommandService] Updating command:", id, updates);
       return await this.api.put(`/api/commands/${id}`, updates);
    }
 
    async deleteCommand(id) {
+      console.log("🗑️ [CommandService] Deleting command:", id);
       return await this.api.delete(`/api/commands/${id}`);
    }
 
    async getCommandTemplates() {
-      console.log("🔍 [CommandService] Loading command templates");
-      const response = await this.api.get('/api/commands');
-      console.log("📋 [CommandService] Command templates loaded:", response);
-      return response;
+      console.log("� [CommandService] Loading command templates");
+      try {
+         return await this.api.get("/api/commands");
+      } catch (error) {
+         console.warn("Command templates not available:", error);
+         return {};
+      }
    }
 }

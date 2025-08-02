@@ -17,8 +17,13 @@ const initialState = {
 const jobService = getService("jobService");
 const store = createCRUDStore(initialState);
 
+// Proxy log lines store from JobWebSocketService via JobService
+const logLinesStore = jobService.getLogLines();
+
 export const jobStore = {
    ...store,
+   // realtime log stream (Svelte store)
+   logLines: logLinesStore,
 
    async loadJobs() {
       store.update((state) => ({ ...state, loading: true, error: null }));
@@ -72,6 +77,10 @@ export const jobStore = {
 
    setCurrentJob(job) {
       store.update((state) => ({ ...state, currentJob: job }));
+   },
+
+   setJobs(jobs) {
+      store.update((state) => ({ ...state, jobs }));
    },
 
    getCurrentJob() {
