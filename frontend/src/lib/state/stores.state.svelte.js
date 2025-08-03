@@ -4,7 +4,7 @@ import { createVMStore } from "$lib/stores/vmStore.js";
 import { createCommandStore } from "$lib/stores/commandStore.js";
 import { createJobStore } from "$lib/stores/jobStore.js";
 import { createLogStore } from "$lib/stores/logStore.js";
-import { attachStores } from './ui.state.svelte.js';
+import { attachStores } from "./ui.state.svelte.js";
 
 /* ── private reactive fields ── */
 let _vmStore = $state(null);
@@ -35,15 +35,16 @@ export function initStores() {
       const vmService = getService("vmService");
       const commandService = getService("commandService");
       const commandExecutor = getService("commandExecutor");
-
-      console.log('🏪 Initializing stores with services:', { vmService, commandService, commandExecutor });
+      const jobService = getService("jobService");
 
       _vmStore = createVMStore({ vmService });
-      _commandStore = createCommandStore({ commandService, vmService, commandExecutor });
-      _jobStore = createJobStore();
+      _commandStore = createCommandStore({
+         commandService,
+         vmService,
+         commandExecutor,
+      });
+      _jobStore = createJobStore({ jobService, vmStore: _vmStore });
       _logStore = createLogStore();
-
-      console.log('🏪 Stores initialized. CommandStore methods:', Object.keys(_commandStore));
    })();
    return initPromise;
 }
@@ -51,44 +52,52 @@ export function initStores() {
 // Separate data initialization from store creation
 export async function initializeStoresData() {
    if (dataInitPromise) return dataInitPromise;
-   
+
    dataInitPromise = (async () => {
       await initStores();
-      
+
       // Attach stores to UI state for reactivity - ONLY ONCE
       attachStores({
          vmStoreRef: _vmStore,
-         commandStoreRef: _commandStore, 
-         jobStoreRef: _jobStore
+         commandStoreRef: _commandStore,
+         jobStoreRef: _jobStore,
+         logStoreRef: _logStore,
       });
-      
-      console.log('🔄 Initializing store data...');
-      
+
+      console.log("🔄 Initializing store data...");
+
       // Load global data that all components need
       const loadPromises = [];
-      
+
       if (_vmStore) {
-         loadPromises.push(_vmStore.loadVMs().catch(err => 
-            console.error('Failed to load VMs:', err)
-         ));
+         loadPromises.push(
+            _vmStore
+               .loadVMs()
+               .catch((err) => console.error("Failed to load VMs:", err))
+         );
       }
-      
-      if (_jobStore?.loadJobs) {
-         loadPromises.push(_jobStore.loadJobs().catch(err => 
-            console.error('Failed to load jobs:', err)
-         ));
+
+      if (_jobStore) {
+         loadPromises.push(
+            _jobStore
+               .loadJobs()
+               .catch((err) => console.error("Failed to load jobs:", err))
+         );
       }
-      
+
       if (_commandStore?.loadAvailableCommandTemplates) {
-         loadPromises.push(_commandStore.loadAvailableCommandTemplates().catch(err => 
-            console.error('Failed to load command templates:', err)
-         ));
+         loadPromises.push(
+            _commandStore
+               .loadAvailableCommandTemplates()
+               .catch((err) =>
+                  console.error("Failed to load command templates:", err)
+               )
+         );
       }
-      
+
       await Promise.all(loadPromises);
-      console.log('✅ Store data initialized');
+      console.log("✅ Store data initialized");
    })();
-   
    return dataInitPromise;
 }
 

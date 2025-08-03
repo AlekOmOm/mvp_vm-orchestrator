@@ -6,7 +6,7 @@
 import { getLogStore } from '$lib/state/stores.state.svelte.js';
 import Log from '$lib/components/lib/models/log/Log.svelte';
 import { Button } from '$lib/components/lib/ui/button';
-import { X } from 'lucide-svelte';
+import { X } from '@lucide/svelte';
 
 let { job = null, isOpen = false, onClose = () => {} } = $props();
 

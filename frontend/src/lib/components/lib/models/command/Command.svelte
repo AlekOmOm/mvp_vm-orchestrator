@@ -10,7 +10,7 @@
   */
 import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/lib/ui/card';
 import { Badge } from '$lib/components/lib/ui/badge';
-import { Loader2 } from 'lucide-svelte';
+import { Loader2 } from '@lucide/svelte';
 
 import { typeConfig } from './commandConfig.js';
 import { getService } from '$lib/core/ServiceContainer.js';

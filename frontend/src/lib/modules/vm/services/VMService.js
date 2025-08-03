@@ -51,6 +51,7 @@ export class VMService {
          this.updateCache(vms);
 
          console.log(`✅ Loaded ${vms.length} VMs`);
+         console.log("vms:", vms);
          return vms;
       } catch (error) {
          console.error("Failed to load VMs:", error);
@@ -103,6 +104,11 @@ export class VMService {
          );
          if (existing) {
             console.log("✅ Found existing VM:", existing);
+            // Update cache with proper UUID
+            const registeredVM = this.transformSSHHostToVM({ alias, ...existing });
+            registeredVM.id = existing.id; // Set backend UUID
+            registeredVM.isRegistered = true;
+            this.vmCache.set(alias, registeredVM);
             return existing;
          }
          console.log("⚠️ VM not found in backend, will create...");
@@ -110,10 +116,9 @@ export class VMService {
          console.error("❌ Failed to list VMs:", error);
       }
 
-      // Attempt to get SSH host details from cache or API
+      // Get SSH host details and create VM
       let sshHost = null;
       if (this.vmCache.has(alias)) {
-         // Cached VM derived from SSH hosts
          const cached = this.vmCache.get(alias);
          sshHost = {
             alias: cached.alias,
@@ -122,11 +127,9 @@ export class VMService {
             description: cached.description,
             suggestedVMName: cached.name,
          };
-         console.log("📦 Using cached SSH host:", sshHost);
       } else {
          try {
             sshHost = await this.ssh.getHost(alias);
-            console.log("🔗 Retrieved SSH host:", sshHost);
          } catch (err) {
             console.error("❌ SSH host not found:", alias, err);
          }
@@ -144,15 +147,18 @@ export class VMService {
          user: sshHost.user,
          environment: this.detectEnvironment(alias),
          description: sshHost.description,
-         alias, // optional persistence of original alias
+         alias,
       };
-
-      console.log("🏗️ Creating VM with payload:", vmPayload);
 
       const created = await this.vms.createVM(vmPayload);
       console.log("✅ VM created:", created);
-      // Update cache
-      this.vmCache.set(created.id, created);
+      
+      // Update cache with backend UUID as primary ID
+      const registeredVM = this.transformSSHHostToVM(sshHost);
+      registeredVM.id = created.id; // Set backend UUID
+      registeredVM.isRegistered = true;
+      this.vmCache.set(alias, registeredVM);
+      
       return created;
    }
 
@@ -283,7 +289,7 @@ export class VMService {
     */
    transformSSHHostToVM(sshHost) {
       return {
-         id: sshHost.alias,
+         id: sshHost.uuid || null,
          name: sshHost.suggestedVMName || sshHost.alias,
          alias: sshHost.alias,
          host: sshHost.hostname,
@@ -305,11 +311,11 @@ export class VMService {
     * @returns {string} Environment type
     */
    detectEnvironment(alias) {
+      if (!alias) return "development";
       const lowerAlias = alias.toLowerCase();
 
       if (lowerAlias.includes("prod")) return "production";
-      if (lowerAlias.includes("staging") || lowerAlias.includes("stage"))
-         return "staging";
+      if (lowerAlias.includes("staging") || lowerAlias.includes("stage")) return "staging";
       if (lowerAlias.includes("test")) return "testing";
       return "development";
    }

@@ -7,6 +7,9 @@ set -e
 
 echo "🚀 Deploying VM Orchestrator Serverless Functions"
 
+ENV_FILE="./serverless/.env"
+source $ENV_FILE
+
 # Check if we're in the right directory
 if [ ! -f "serverless/serverless.yml" ]; then
     echo "❌ Error: serverless/serverless.yml not found. Please run this script from the project root."
@@ -20,7 +23,7 @@ if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
 fi
 
 # Check if .env file exists
-if [ ! -f ".env" ]; then
+if [ ! -f "./serverless/.env" ]; then
     echo "⚠️  Warning: .env file not found. Using default values."
     echo "   Consider copying .env.sample to .env and configuring your settings."
 fi
@@ -41,9 +44,9 @@ if ! command -v serverless &> /dev/null; then
 fi
 
 # Copy .env file to serverless directory if it doesn't exist
-if [ ! -f ".env" ] && [ -f "../.env" ]; then
+if [ ! -f "$ENV_FILE" ] && [ -f "../.env" ]; then
     echo "📋 Copying .env file to serverless directory..."
-    cp ../.env .env
+    cp ../.env $ENV_FILE
 fi
 
 # Deploy the serverless functions

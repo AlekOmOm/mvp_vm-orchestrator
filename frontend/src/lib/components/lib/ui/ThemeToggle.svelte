@@ -1,6 +1,6 @@
 <script>
 import { getTheme, toggleTheme } from '$lib/state/theme.state.svelte.js';
-import { Sun, Moon } from 'lucide-svelte';
+import { Sun, Moon } from '@lucide/svelte';
 
 const theme = $derived(getTheme());
 </script>

@@ -25,9 +25,16 @@ export function createCommandStore(dependencies) {
       async loadVMCommands(vmId) {
          if (!vmId) return [];
 
+         if (store.getState().commandsByVM[vmId]) {
+            console.log("✅ CommandStore: VM commands already loaded:", vmId);
+            return store.getState().commandsByVM[vmId];
+         }
+
          try {
             const backendVM = await vmService.ensureRegistered(vmId);
-            const vmCommands = await commandService.listVMCommands(backendVM.id);
+            const vmCommands = await commandService.listVMCommands(
+               backendVM.id
+            );
 
             const state = store.getState();
             store.set({
@@ -37,7 +44,7 @@ export function createCommandStore(dependencies) {
             });
             return vmCommands;
          } catch (error) {
-            console.error('Failed to load VM commands:', error);
+            console.error("Failed to load VM commands:", error);
             throw error;
          }
       },
@@ -51,7 +58,7 @@ export function createCommandStore(dependencies) {
             }));
             return commandTemplates;
          } catch (error) {
-            console.error('Failed to load command templates:', error);
+            console.error("Failed to load command templates:", error);
             throw error;
          }
       },
@@ -61,7 +68,10 @@ export function createCommandStore(dependencies) {
 
          try {
             const backendVM = await vmService.ensureRegistered(vmId);
-            const newCommand = await commandService.createCommand(backendVM.id, data);
+            const newCommand = await commandService.createCommand(
+               backendVM.id,
+               data
+            );
 
             store.update((s) => {
                const vmCmds = s.commandsByVM[vmId] ?? [];
@@ -76,74 +86,88 @@ export function createCommandStore(dependencies) {
             });
             return newCommand;
          } catch (error) {
-            console.error('Failed to create command:', error);
+            console.error("Failed to create command:", error);
             throw error;
          }
       },
 
       async updateCommand(commandId, updateData) {
-         console.log('🔄 CommandStore: Updating command via API:', commandId, updateData);
-         
+         console.log(
+            "🔄 CommandStore: Updating command via API:",
+            commandId,
+            updateData
+         );
+
          try {
-            const updatedCommand = await commandService.updateCommand(commandId, updateData);
-            console.log('📡 CommandStore: API update successful:', updatedCommand);
-            
+            const updatedCommand = await commandService.updateCommand(
+               commandId,
+               updateData
+            );
+            console.log(
+               "📡 CommandStore: API update successful:",
+               updatedCommand
+            );
+
             store.update((s) => {
                // Update in vmCommands array
-               const vmCommandsUpdated = s.vmCommands.map(cmd => 
+               const vmCommandsUpdated = s.vmCommands.map((cmd) =>
                   cmd.id === commandId ? updatedCommand : cmd
                );
-               
+
                // Update in commandsByVM object
                const commandsByVMUpdated = { ...s.commandsByVM };
-               Object.keys(commandsByVMUpdated).forEach(vmId => {
-                  commandsByVMUpdated[vmId] = commandsByVMUpdated[vmId].map(cmd =>
-                     cmd.id === commandId ? updatedCommand : cmd
+               Object.keys(commandsByVMUpdated).forEach((vmId) => {
+                  commandsByVMUpdated[vmId] = commandsByVMUpdated[vmId].map(
+                     (cmd) => (cmd.id === commandId ? updatedCommand : cmd)
                   );
                });
-               
+
                return {
                   ...s,
                   vmCommands: vmCommandsUpdated,
                   commandsByVM: commandsByVMUpdated,
                };
             });
-            
-            console.log('✅ CommandStore: Command updated successfully');
+
+            console.log("✅ CommandStore: Command updated successfully");
             return updatedCommand;
          } catch (error) {
-            console.error('❌ CommandStore: Failed to update command:', error);
+            console.error("❌ CommandStore: Failed to update command:", error);
             throw error;
          }
       },
 
       async deleteCommand(commandId) {
-         console.log('🗑️ CommandStore: Deleting command via API:', commandId);
-         
+         console.log("🗑️ CommandStore: Deleting command via API:", commandId);
+
          try {
             await commandService.deleteCommand(commandId);
-            console.log('📡 CommandStore: API delete successful');
-            
+            console.log("📡 CommandStore: API delete successful");
+
             store.update((s) => {
                // Remove from vmCommands array
-               const vmCommandsUpdated = s.vmCommands.filter(cmd => cmd.id !== commandId);
-               
+               const vmCommandsUpdated = s.vmCommands.filter(
+                  (cmd) => cmd.id !== commandId
+               );
+
                // Remove from commandsByVM object
                const commandsByVMUpdated = { ...s.commandsByVM };
-               Object.keys(commandsByVMUpdated).forEach(vmId => {
-                  commandsByVMUpdated[vmId] = commandsByVMUpdated[vmId].filter(cmd => cmd.id !== commandId);
+               Object.keys(commandsByVMUpdated).forEach((vmId) => {
+                  commandsByVMUpdated[vmId] = commandsByVMUpdated[vmId].filter(
+                     (cmd) => cmd.id !== commandId
+                  );
                });
-               
+
                return {
                   ...s,
                   vmCommands: vmCommandsUpdated,
                   commandsByVM: commandsByVMUpdated,
                };
             });
-            
-            console.log('✅ CommandStore: Command deleted successfully');
+
+            console.log("✅ CommandStore: Command deleted successfully");
          } catch (error) {
-            console.error('❌ CommandStore: Failed to delete command:', error);
+            console.error("❌ CommandStore: Failed to delete command:", error);
             throw error;
          }
       },
@@ -151,9 +175,13 @@ export function createCommandStore(dependencies) {
       /* ───────── execution delegation to CommandExecutor ───────── */
       async executeCommand(selectedVM, command, options = {}) {
          if (!commandExecutor) {
-            throw new Error('CommandExecutor not available');
+            throw new Error("CommandExecutor not available");
          }
-         return await commandExecutor.executeCommand(selectedVM, command, options);
+         return await commandExecutor.executeCommand(
+            selectedVM,
+            command,
+            options
+         );
       },
 
       // Execution state access

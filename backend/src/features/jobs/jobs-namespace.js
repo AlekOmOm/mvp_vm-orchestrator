@@ -2,7 +2,7 @@
  * Enhanced Jobs Namespace with improved logging and error handling
  */
 
-import { COMMANDS } from "../config/index.js";
+import { COMMANDS } from "./../../config/index.js";
 
 /**
  * Get browser info from user agent

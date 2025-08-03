@@ -1,102 +1,136 @@
 /**
- * Job Store - Direct instance implementation
+ * JobStore - CRUD caching layer for JobService (matches VM pattern)
  */
-
 import { createCRUDStore } from "./crudStore.js";
-import { getService } from "$lib/core/ServiceContainer.js";
 
 const initialState = {
-   jobs: [],
-   jobsByVM: {},
+   jobs: null,
    currentJob: null,
    loading: false,
    error: null,
 };
 
-// Get jobService from ServiceContainer
-const jobService = getService("jobService");
-const store = createCRUDStore(initialState);
+export function createJobStore(dependencies) {
+   const { jobService, vmStore } = dependencies;
+   const store = createCRUDStore(initialState);
 
-// Proxy log lines store from JobWebSocketService via JobService
-const logLinesStore = jobService.getLogLines();
+   return {
+      // Svelte store contract
+      subscribe: store.subscribe,
 
-export const jobStore = {
-   ...store,
-   // realtime log stream (Svelte store)
-   logLines: logLinesStore,
+      // Direct state access for runes
+      get jobs() {
+         return store.getState().jobs;
+      },
+      get currentJob() {
+         return store.getState().currentJob;
+      },
+      get loading() {
+         return store.getState().loading;
+      },
+      get error() {
+         return store.getState().error;
+      },
 
-   async loadJobs() {
-      store.update((state) => ({ ...state, loading: true, error: null }));
+      // CRUD Methods - Cache + API
+      async loadJobs(limit = 50) {
+         store.update((state) => ({ ...state, loading: true, error: null }));
 
-      try {
-         const jobs = await jobService.fetchJobs();
-         store.update((state) => ({ ...state, jobs, loading: false }));
-         return jobs;
-      } catch (error) {
-         console.error("Failed to load jobs:", error);
-         store.update((state) => ({
-            ...state,
-            loading: false,
-            error: error.message,
-         }));
-         throw error;
-      }
-   },
+         try {
+            const jobs = await jobService.getJobs(limit);
+            store.update((state) => ({
+               ...state,
+               jobs,
+               loading: false,
+               error: null,
+            }));
+            return jobs;
+         } catch (error) {
+            store.update((state) => ({
+               ...state,
+               loading: false,
+               error: error.message,
+            }));
+            throw error;
+         }
+      },
 
-   async loadVMJobs(vmId) {
-      if (!vmId) return [];
+      async loadVMJobs(vmIdentifier, limit = 50) {
+         store.update((state) => ({ ...state, loading: true, error: null }));
 
-      try {
-         const jobs = await jobService.fetchVMJobs(vmId);
-         store.update((state) => ({
-            ...state,
-            jobsByVM: { ...state.jobsByVM, [vmId]: jobs },
-         }));
-         return jobs;
-      } catch (error) {
-         console.error(`Failed to load jobs for VM ${vmId}:`, error);
-         throw error;
-      }
-   },
+         try {
+            const vm = await vmStore.resolveVM(vmIdentifier);
+            if (!vm || !vm.id) {
+               throw new Error(`VM not registered: ${vmIdentifier}`);
+            }
+            
+            // vm.id is guaranteed to be a UUID
+            const jobs = await jobService.getJobsForVM(vm.id, limit);
+            store.update((state) => ({
+               ...state,
+               jobs,
+               loading: false,
+               error: null,
+            }));
+            return jobs;
+         } catch (error) {
+            store.update((state) => ({
+               ...state,
+               loading: false,
+               error: error.message,
+            }));
+            throw error;
+         }
+      },
 
-   addJob(job) {
-      store.update((state) => ({
-         ...state,
-         jobs: [job, ...state.jobs],
-      }));
-   },
+      async createJob(jobData) {
+         try {
+            const newJob = await jobService.createJob(jobData);
+            store.update((state) => ({
+               ...state,
+               jobs: state.jobs ? [...state.jobs, newJob] : [newJob],
+            }));
+            return newJob;
+         } catch (error) {
+            store.update((state) => ({ ...state, error: error.message }));
+            throw error;
+         }
+      },
 
-   updateJob(jobId, updates) {
-      store.update((state) => ({
-         ...state,
-         jobs: state.jobs.map((j) =>
-            j.id === jobId ? { ...j, ...updates } : j
-         ),
-      }));
-   },
+      async updateJob(jobId, updates) {
+         try {
+            const updatedJob = await jobService.updateJob(jobId, updates);
+            store.update((state) => ({
+               ...state,
+               jobs:
+                  state.jobs?.map((job) =>
+                     job.id === jobId ? updatedJob : job
+                  ) || null,
+               currentJob:
+                  state.currentJob?.id === jobId
+                     ? updatedJob
+                     : state.currentJob,
+            }));
+            return updatedJob;
+         } catch (error) {
+            store.update((state) => ({ ...state, error: error.message }));
+            throw error;
+         }
+      },
 
-   setCurrentJob(job) {
-      store.update((state) => ({ ...state, currentJob: job }));
-   },
+      // Current job state management (for real-time execution)
+      setCurrentJob(job) {
+         store.update((state) => ({ ...state, currentJob: job }));
+      },
 
-   setJobs(jobs) {
-      store.update((state) => ({ ...state, jobs }));
-   },
+      clearCurrentJob() {
+         store.update((state) => ({ ...state, currentJob: null }));
+      },
 
-   getCurrentJob() {
-      return store.getState().currentJob;
-   },
-
-   getVMJobs(vmId) {
-      return store.getState().jobsByVM[vmId] || [];
-   },
-
-   getLogLinesForJob(jobId) {
-      const job = store.getState().jobs.find((j) => j.id === jobId);
-      return job?.logs || [];
-   },
-};
-
-export function createJobStore() {
-   return jobStore;
+      // Utility methods
+      getJobsForVM(vmId) {
+         const state = store.getState();
+         return state.jobs?.filter((job) => job.vmId === vmId) || [];
+      },
+   };
 }

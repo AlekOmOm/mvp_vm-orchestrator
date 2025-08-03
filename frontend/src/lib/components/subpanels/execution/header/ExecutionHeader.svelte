@@ -1,6 +1,6 @@
 <script>
 import { Badge } from '$lib/components/lib/ui/badge';
-import { Terminal } from 'lucide-svelte';
+import { Terminal } from '@lucide/svelte';
 import { getService } from '../../../../core/ServiceContainer.js';
 import { getSelectedVM } from '../../../../state/ui.state.svelte.js';
 import ExecutionTabs from './ExecutionTabs.svelte';
@@ -10,8 +10,7 @@ let { activeTab, ontabchange } = $props();
 const selectedVM = $derived(getSelectedVM());
 
 const jobService = getService('jobService');
-let currentJob = $derived(jobService.getCurrentJob());
-let isExecuting = $derived(!!currentJob);
+const currentJob = $derived(jobService.getCurrentJob());
 
 function handleChange(e) {
   ontabchange?.(e);
@@ -22,7 +21,7 @@ function handleChange(e) {
   <div class="flex items-center justify-between px-6 py-3">
     <ExecutionTabs {activeTab} onchange={handleChange} />
     <div class="flex items-center space-x-3">
-      {#if isExecuting}
+      {#if currentJob}
         <Badge variant="secondary" class="flex items-center gap-1">
           <Terminal class="w-3 h-3" /> Executing
         </Badge>

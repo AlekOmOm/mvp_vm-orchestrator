@@ -8,9 +8,10 @@
 - Process streaming for non-interactive targets (`make status`, `make build`, …)
 - Remote log streaming via SSH (`docker logs -f`)
 - Persistent job history stored in Postgres
+- **security**: User persistence in Postgres allows GDPR compliance
 - **NEW**: VM configuration management with DynamoDB
 - **NEW**: Command management per VM with serverless API
-- **NEW**: Job caching with AWS Lambda for improved performance
+- **NEW**: Job and Logs caching with in Postgresql for improved performance
 
 ## Tech stack
 - Frontend: Svelte + Vite + Socket.io-client
@@ -29,7 +30,7 @@ make dev        # start backend, frontend & postgres
 ```
 
 Application endpoints  
-- Frontend http://localhost:5173  
+- Frontend http://localhost:5174  
 - Backend  http://localhost:3000  
 
 Stop everything:
@@ -50,7 +51,7 @@ Run automated validation:
 make validate
 ```
 
-## Serverless Setup (Optional)
+## Serverless Setup 
 
 For enhanced VM and command management, deploy the serverless functions:
 

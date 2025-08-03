@@ -10,7 +10,7 @@ import { Card, CardContent } from '$lib/components/lib/ui/card';
 import { Badge } from '$lib/components/lib/ui/badge';
 import { Button } from '$lib/components/lib/ui/button';
 import StatusBadge from '$lib/components/lib/ui/StatusBadge.svelte';
-import { Eye, RotateCcw, Clock, CheckCircle, XCircle } from 'lucide-svelte';
+import { Eye, RotateCcw, Clock, CheckCircle, XCircle } from '@lucide/svelte';
 import { getJobStore, getLogStore } from '$lib/state/stores.state.svelte.js';
 import { getService } from '$lib/core/ServiceContainer.js';
 import JobLogModal from './JobLogModal.svelte';
@@ -50,7 +50,7 @@ const displayCommand = $derived(() => {
 
 const canRetry = $derived(['failed', 'error', 'canceled', 'cancelled'].includes(job?.status));
 
-const statusIcon = $derived(() => {
+const StatusIcon = $derived(() => {
   switch (job?.status) {
     case 'completed': return CheckCircle;
     case 'failed': return XCircle;
@@ -96,9 +96,8 @@ function formatTimestamp(timestamp) {
       <div class="flex items-start justify-between">
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-2">
-            <svelte:component 
-              this={statusIcon} 
-              class="w-4 h-4 {job.status === 'completed' ? 'text-green-600' : job.status === 'failed' ? 'text-red-600' : 'text-yellow-600'}" 
+            <StatusIcon
+              class="w-4 h-4 {job.status === 'completed' ? 'text-green-600' : job.status === 'failed' ? 'text-red-600' : 'text-yellow-600'}"
             />
             <span class="font-medium truncate">{displayCommand}</span>
             <StatusBadge status={statusVariant}>

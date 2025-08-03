@@ -14,8 +14,8 @@ import { VMService } from "../modules/vm/services/VMService.js";
 import { SshHostService } from "../modules/ssh/services/SshHostService.js";
 import { VmsService } from "../modules/vms/services/VmsService.js";
 import { CommandService } from "../modules/commands/CommandService.js";
-import { JobService } from "../modules/jobs/services/JobService.js";
-import { CommandExecutor } from "./services/CommandExecutor.js";
+import { JobService } from "$lib/modules/jobs/services/JobService.js";
+import { CommandExecutor } from "$lib/core/services/CommandExecutor.svelte.js";
 import { LogService } from "../modules/logs/logService.js";
 import { writable } from "svelte/store";
 
@@ -53,20 +53,16 @@ export class ServiceContainer {
          (c) => new CommandService(c.get("apiClient"))
       );
       this.registerSingleton(
-         "jobsWebSocketClient",
+         "webSocketClient",
          () => new WebSocketClient("/jobs")
       );
       this.registerSingleton(
-         "jobSocketService",
-         (c) =>
-            new JobWebSocketService(
-               c.get("jobsWebSocketClient"),
-               c.get("apiClient")
-            )
+         "jobWebSocketService",
+         (c) => new JobWebSocketService(c.get("webSocketClient"))
       );
       this.registerSingleton(
          "jobService",
-         (c) => new JobService(c.get("jobSocketService"), c.get("apiClient"))
+         (c) => new JobService(c.get("apiClient"))
       );
       this.registerSingleton(
          "vmService",
@@ -74,14 +70,11 @@ export class ServiceContainer {
             new VMService(
                c.get("sshHostService"),
                c.get("vmsService"),
-               c.get("jobsWebSocketClient")
+               c.get("jobWebSocketService")
             )
       );
-      this.registerSingleton(
-         "commandExecutor",
-         (c) => new CommandExecutor(c.get("jobService"), c.get("vmService"))
-      );
-      // Backward compatibility alias
+      this.registerSingleton("commandExecutor", (c) => new CommandExecutor());
+
       this.registerSingleton("commandExecutionService", (c) =>
          c.get("commandExecutor")
       );
@@ -98,15 +91,6 @@ export class ServiceContainer {
     */
    registerSingleton(name, factory) {
       this.singletons.set(name, { factory, instance: null });
-   }
-
-   /**
-    * Register a factory service (new instance each time)
-    * @param {string} name - Service name
-    * @param {Function} factory - Factory function
-    */
-   registerFactory(name, factory) {
-      this.factories.set(name, factory);
    }
 
    /**
@@ -153,11 +137,7 @@ export class ServiceContainer {
     * @returns {boolean} True if service is registered
     */
    has(name) {
-      return (
-         this.services.has(name) ||
-         this.singletons.has(name) ||
-         this.factories.has(name)
-      );
+      return this.services.has(name) || this.singletons.has(name);
    }
 
    /**
@@ -173,48 +153,26 @@ export class ServiceContainer {
 
       try {
          // Initialize core clients
-         const apiClient = this.get("apiClient");
-         const wsClient = this.get("jobsWebSocketClient");
-
-         // Initialize job socket service BEFORE connecting to ensure it receives core:connected event
-         const jobSocketService = this.get("jobSocketService");
-         const jobService = this.get("jobService");
+         const wsClient = this.get("webSocketClient");
 
          // Connect WebSocket
          wsClient.connect();
 
          // Wait for WebSocket connection (with timeout)
          await this.waitForWebSocketConnection(wsClient, 10000);
+         this.get("apiClient");
 
-         // Connect jobStore to jobService for real-time updates
-         const { getJobStore } = await import("$lib/state/stores.state.svelte.js");
-         const jobStore = getJobStore();
-         if (jobStore) {
-            jobService.setJobStore(jobStore);
-            console.log("🔗 Connected jobStore to jobService");
-         }
+         // Initialize core services
+         this.get("vmService");
+         this.get("commandService");
+         this.get("commandExecutor");
+         this.get("logService");
+         this.get("jobService");
 
          this.initialized = true;
-         console.log("✅ Service container initialized");
-
-         // Update health state reactively
-         serviceHealth.update((health) => ({
-            ...health,
-            apiClient: "connected",
-            jobService: wsClient.getIsConnected()
-               ? "connected"
-               : "disconnected",
-         }));
       } catch (error) {
          console.error("❌ Failed to initialize service container:", error);
          throw error;
-
-         // Update health state reactively
-         serviceHealth.update((health) => ({
-            ...health,
-            apiClient: "error",
-            jobService: "error",
-         }));
       }
    }
 
@@ -255,8 +213,8 @@ export class ServiceContainer {
 
       try {
          // Disconnect WebSocket clients
-         if (this.has("jobsWebSocketClient")) {
-            const wsClient = this.get("jobsWebSocketClient");
+         if (this.has("webSocketClient")) {
+            const wsClient = this.get("webSocketClient");
             wsClient.disconnect();
          }
 
@@ -327,7 +285,7 @@ export function getService(serviceName) {
  * @returns {Promise} Promise that resolves when initialized
  */
 export async function initializeServices() {
-   if (serviceContainer.isInitialized()) return;
+   // services: vmService, commandService, jobService, logService
    await serviceContainer.initialize();
 }
 

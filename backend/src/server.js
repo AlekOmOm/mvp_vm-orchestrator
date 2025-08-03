@@ -1,12 +1,14 @@
 // server.js
 import http from "http";
 import { Server } from "socket.io";
+import dotenv from "dotenv";
+dotenv.config({ path: "../.env" });
 import { app, db, executionManager } from "./app.js";
 import { WEBSOCKET_CONFIG, SERVER_CONFIG } from "./config/index.js";
 import {
    setupJobsNamespace,
    enhanceExecutionManagerForNamespace,
-} from "./websocket/jobs-namespace.js";
+} from "./features/jobs/jobs-namespace.js";
 
 const server = http.createServer(app);
 const io = new Server(server, {

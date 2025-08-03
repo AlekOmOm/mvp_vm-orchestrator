@@ -1,6 +1,6 @@
 <script>
 import { Button } from '$lib/components/lib/ui/button';
-import { Play, Loader2 } from 'lucide-svelte';
+import { Play, Loader2 } from '@lucide/svelte';
 
 // state - global state access
 import { getSelectedVM } from '$lib/state/ui.state.svelte.js';

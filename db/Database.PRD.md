@@ -1,128 +1,97 @@
-# DATABASE.PRD.md  
-Authoritative one-pager describing how data is stored and accessed in the VM-Orchestrator project after the “Users-only in Postgres” decision and the new session requirements.
+# DATABASE.PRD.md
+Single-page reference for persistent data in VM-Orchestrator after the “Users in Postgres, operational data in DynamoDB, Postgres cache for Jobs/Logs” decision.
 
 ---
 
 ## 1. Logical Overview
 
-```
-Frontend (SvelteKit) ──HTTP──►  Node.js / Express
-                               ├── users_router  ──►  PostgreSQL   (users)
-                               └── all_other     ──►  AWS DynamoDB (vms, commands, jobs, logs)
-```
+Frontend ──HTTP──► Node.js / Express  
+               ├── users_router   ──► PostgreSQL (users + **jobs/logs cache**)  
+               └── api_router     ──► AWS DynamoDB (vms, commands, jobs, logs)
 
-Key points  
-- Authentication = classic **stateful** session (cookie) via `express-session`.  
-- No JWT, no Redis / DB session store; we rely on the in-memory `MemoryStore` for now (adequate for one-instance dev & demo).  
-- After a successful login the backend places the **AWS access keys** for that user into the session object so every subsequent request is already authorised to talk to DynamoDB / Lambda.  
-- DynamoDB & Lambda live in real AWS; we do **not** run DynamoDB-Local in dev.
+• DynamoDB holds the authoritative copy of VMs, Commands, Jobs, Logs.  
+• Postgres keeps GDPR-relevant Users **and** a *short-lived cache* of Jobs & Logs for quick queries / joins.  
+• Cache lifetime ≈ 7 days; a cron removes stale rows.
 
 ---
 
-## 2. PostgreSQL (self-hosted, GDPR sensitive)
-
-### 2.1 DDL
+## 2. PostgreSQL
 
 ```sql
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
+-- Users (GDPR-sensitive)
 CREATE TABLE users (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email         TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   role          TEXT NOT NULL CHECK (role IN ('admin','dev','viewer')),
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 CREATE INDEX idx_users_email ON users(email);
+
+-- Jobs (cache)
+CREATE TABLE jobs (
+  id         UUID PRIMARY KEY,
+  vm_id      TEXT  NOT NULL,           -- mirrors DynamoDB vmId
+  command    TEXT  NOT NULL,
+  status     TEXT  NOT NULL CHECK (status IN ('running','success','failed')),
+  started_at TIMESTAMPTZ,
+  finished_at TIMESTAMPTZ,
+  cached_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_jobs_vm_id ON jobs(vm_id);
+
+-- Job logs (cache)
+CREATE TABLE job_logs (
+  job_id    UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  ts        TIMESTAMPTZ NOT NULL,
+  stream    TEXT NOT NULL CHECK (stream IN ('stdout','stderr')),
+  data      TEXT NOT NULL,
+  cached_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (job_id, ts)
+);
+CREATE INDEX idx_job_logs_job_ts ON job_logs(job_id, ts);
+
+-- Optional: purge rows older than 7 days (example)
+-- CREATE POLICY purge_cache ...
 ```
 
-Nothing else persists in Postgres.
+Only these three tables live in Postgres.
 
 ---
 
-## 3. DynamoDB (operational, AWS)
+## 3. DynamoDB (authoritative)
 
-| Table | PK | SK | GSIs (examples) | TTL attr | Notes |
-|-------|----|----|-----------------|----------|-------|
-| `vms`        | `vmId`      | —   | `byEnvironment`        | —          | Catalogue of machines |
-| `commands`   | `commandId` | —   | `byVmId`               | —          | Declarative commands  |
-| `jobs`       | `jobId`     | —   | `byVmId`, `byStatus`   | `expiresAt`| Execution metadata    |
-| `jobEvents`  | `jobId`     | `ts`| —                      | `expiresAt`| Streaming logs        |
+| Table | PK | SK | GSIs | TTL attr |
+|-------|----|----|------|----------|
+| vms       | vmId      | —  | byEnvironment | — |
+| commands  | commandId | —  | byVmId        | — |
 
-All tables are **on-demand** capacity.
+JobCacheTable removed – Postgres now fulfils that need.
 
 ---
 
-## 4. Session & Authentication Flow
+## 4. Route Ownership
 
-1. `POST /api/users/login`  
-   - Verifies credentials against Postgres.  
-   - Reads the user’s AWS creds (for now: `accessKeyId`, `secretAccessKey`, `sessionToken?`) from `.env`, another secret store, or a small lookup table in Postgres.  
-   - Stores  
-     ```js
-     req.session.user = { id, role };
-     req.session.aws  = { accessKeyId, secretAccessKey, sessionToken };
-     ```  
-   - Returns `200 OK` (no JWT).
+| Route prefix | Primary store | Notes |
+|--------------|---------------|-------|
+| /api/users/** | PostgreSQL | GDPR data |
+| /api/jobs/**, /api/logs/** | DynamoDB (read-through + write-through to Postgres cache) | |
+| others (/api/vms/**, /api/commands/**) | DynamoDB | |
 
-2. Subsequent requests  
-   - `express-session` middleware restores `req.session`.  
-   - DynamoDB helper uses `new DynamoDBClient({ credentials: req.session.aws })`.  
-   - If the session expires or is destroyed, access to DynamoDB is lost automatically.
-
-3. Logout  
-   - `POST /api/users/logout` → `req.session.destroy()` → cookie cleared.
-
-Important: because sessions live in RAM, restarting the backend logs everyone out.
+The backend writes every job/log change to DynamoDB and **asynchronously** upserts the Postgres cache.
 
 ---
 
-## 5. REST Route Ownership
+## 5. Dev Setup
 
-| Route prefix | Backing store | Controller |
-|--------------|--------------|------------|
-| `/api/users/**` | Postgres | `users_router.js` |
-| all others (`/api/vms/**`, `/api/commands/**`, `/api/jobs/**`, …) | DynamoDB (via AWS SDK) | individual routers |
-
----
-
-## 6. Minimal Dev Setup
-
-1. `.env` must contain  
-   ```
-   POSTGRES_USER=…
-   POSTGRES_PASSWORD=…
-   POSTGRES_DB=…
-   POSTGRES_HOST=localhost
-   POSTGRES_PORT=5432
-
-   # Default AWS creds issued to every dev user in local dev
-   AWS_ACCESS_KEY_ID=…
-   AWS_SECRET_ACCESS_KEY=…
-   AWS_REGION=us-east-1
-   ```
-   In production the per-user keys are fetched during `/login`.
-
-2. `docker-compose up postgres` to start the only local service.
-
-3. `npm run dev` starts Express with hot reload.
-
-No local DynamoDB; all calls hit AWS.
+1. `docker-compose up postgres`  
+2. DynamoDB calls in dev hit AWS  
+3. `.env` supplies Postgres vars + AWS creds  
+4. A daily cron (make target `make purge-cache`) deletes Postgres rows older than 7 days.
 
 ---
 
-## 7. Responsibilities
-
-Backend developer  
-- Maintain Express routers and session middleware.  
-- Provide helper that instantiates AWS SDK clients from `req.session.aws`.  
-- Secure `/login` so that incorrect creds never obtain AWS keys.
-
-Frontend developer  
-- Use the same `/api/**` OpenAPI surface.  
-- Store nothing client-side except the session cookie automatically set by Express.
-
----
-This document is the single source of truth for how data is stored and accessed in the project.
+This page is the canonical description of persistent data storage.

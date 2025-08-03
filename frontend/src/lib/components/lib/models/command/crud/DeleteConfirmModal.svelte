@@ -1,7 +1,7 @@
 <script>
 import { Button } from '$lib/components/lib/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/lib/ui/card';
-import { AlertTriangle, X } from 'lucide-svelte';
+import { AlertTriangle, X } from '@lucide/svelte';
 
 // state - centralized command UI state
 import { 

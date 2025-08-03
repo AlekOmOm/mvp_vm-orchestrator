@@ -1,5 +1,6 @@
 # node
 !package.json
+!package-lock.json
 
 # backend
 
@@ -16,4 +17,4 @@
 
 
 frontend/src/dist/
-serverless/
+!serverless/

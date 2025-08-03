@@ -1,68 +1,29 @@
 <script>
-  import { getService } from '$lib/core/ServiceContainer.js';
   import { getSelectedVM, getSelectedVMCommands } from '$lib/state/ui.state.svelte.js';
-  import { getCommandStore } from '$lib/state/stores.state.svelte.js';
   import VMCommands from '$lib/components/lib/models/command/VMCommands.svelte';
   import AddCommandForm from '$lib/components/lib/models/command/crud/AddCommandForm.svelte';
-  import EditCommandModal from '$lib/components/lib/models/command/crud/EditCommandModal.svelte';
-  import DeleteConfirmModal from '$lib/components/lib/models/command/crud/DeleteConfirmModal.svelte';
   import { Button } from '$lib/components/lib/ui/button';
-  import Terminal from '$lib/components/subpanels/execution/subExecutionTab/Terminal.svelte'
-
-  let { oncommandexecute, onalert } = $props();
+  import Terminal from '$lib/components/subpanels/execution/subExecutionTab/Terminal.svelte';
 
   // Direct state access
   const selectedVM = $derived(getSelectedVM());
   const commands = $derived(getSelectedVMCommands());
-  const commandStore = $derived(getCommandStore());
-
-  const commandExecutor = getService('commandExecutor');
-  const jobService = getService('jobService');
-
-  const isExecutingStore = commandExecutor.getIsExecuting();
-  const isExecuting = $derived($isExecutingStore);
-
-  const connectionStatusStore = jobService.getConnectionStatus();
-  const connectionStatus = $derived($connectionStatusStore);
+  let prevSelectedVM = null;
+  let vmCommands = $derived(getSelectedVMCommands());
 
   // Local UI state
   let showAddForm = $state(false);
-  let editingCommand = $state(null);
-  let deletingCommand = $state(null);
 
-  // ---------------------------
-  // event handlers
-  async function handleExecute(cmd) {
-    if (connectionStatus !== 'connected') {
-      onalert?.({ type: 'error', message: 'WebSocket not connected', domain: 'connection' });
-      return;
+  // reactivity 
+
+  $effect(() => {
+    if (selectedVM !== prevSelectedVM) {
+      prevSelectedVM = selectedVM;
+      vmCommands = getSelectedVMCommands();
     }
-    if (isExecuting) {
-      onalert?.({ type: 'warning', message: 'Another command is already executing', domain: 'execution' });
-      return;
-    }
-    try {
-      await commandExecutor.executeCommand(selectedVM, cmd);
-      oncommandexecute?.(cmd);
-    } catch (e) {
-      onalert?.({ type: 'error', message: e.message, domain: 'command-execution' });
-    }
-  }
+  });
 
-  function handleEdit(c) { editingCommand = c; }
-  function handleDelete(c) { deletingCommand = c; }
 
-  async function handleUpdateCommand(updated) {
-    await commandStore.updateCommand(editingCommand.id, updated);
-    editingCommand = null;
-    if (selectedVM) commandStore.loadVMCommands(selectedVM.id);
-  }
-
-  async function confirmDeleteCommand() {
-    await commandStore.deleteCommand(deletingCommand.id);
-    deletingCommand = null;
-    if (selectedVM) commandStore.loadVMCommands(selectedVM.id);
-  }
 </script>
 
 <div class="flex flex-col h-full">

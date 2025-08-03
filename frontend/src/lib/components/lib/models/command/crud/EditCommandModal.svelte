@@ -4,7 +4,7 @@ import { Input } from '$lib/components/lib/ui/input';
 import { Label } from '$lib/components/lib/ui/label';
 import { Textarea } from '$lib/components/lib/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/lib/ui/card';
-import { X, Terminal, Loader2 } from 'lucide-svelte';
+import { X, Terminal, Loader2 } from '@lucide/svelte';
 
 // state - centralized command UI state
 import { 

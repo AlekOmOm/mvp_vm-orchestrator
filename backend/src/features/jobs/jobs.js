@@ -1,9 +1,9 @@
 import express from 'express';
-import { JobModel } from '../lib/models/JobModel.js';
+import { JobModel } from './JobModel.js';
 
-export function createJobsRouter(db) {
+export function createJobsRouter(db, executionManager) {
   const router = express.Router();
-  const jobModel = new JobModel(db);
+  const jobModel = new JobModel(db, executionManager);
 
   router.get('/', async (req, res) => {
     try {

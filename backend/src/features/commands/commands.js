@@ -1,6 +1,6 @@
 import express from "express";
-import { serverlessAPI } from "../lib/serverless-api-client.js";
-import { COMMANDS } from "../config/index.js";
+import { serverlessAPI } from "../../clients/serverless-api-client.js";
+import { COMMANDS } from "../../config/index.js";
 
 export const commandsRouter = express.Router();
 

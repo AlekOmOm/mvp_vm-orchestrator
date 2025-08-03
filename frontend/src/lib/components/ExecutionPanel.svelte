@@ -3,14 +3,12 @@
   import Panel from '$lib/components/lib/ui/Panel.svelte';
   import ExecutionTab from '$lib/components/subpanels/execution/ExecutionTab.svelte';
   import JobHistory from '$lib/components/subpanels/execution/HistoryTab.svelte';
-  import Terminal from '$lib/components/subpanels/execution/subExecutionTab/Terminal.svelte';
-
-  let {
-    currentJob = null,
-    currentAlert = null
-  } = $props();
+  import { getJobStore } from '$lib/state/stores.state.svelte.js';
 
   let activeTab = $state('execute');
+
+  const currentJob = $derived(getJobStore().currentJob);
+
 </script>
 
 <Panel variant="main" class="h-full flex flex-col">
@@ -21,7 +19,7 @@
     </TabsList>
     
     <TabsContent value="execute" class="flex-1 flex flex-col h-full mt-0">
-      <ExecutionTab onalert={(alert) => currentAlert = alert} />
+      <ExecutionTab />
     </TabsContent>
     
     <TabsContent value="history" class="flex-1 h-full mt-0">

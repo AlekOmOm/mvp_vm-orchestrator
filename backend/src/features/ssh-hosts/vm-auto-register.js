@@ -1,5 +1,5 @@
 import { SSHManager } from './ssh-manager.js';
-import { serverlessAPI } from './serverless-api-client.js';
+import { serverlessAPI } from '../../clients/serverless-api-client.js';
 
 // cache of last refresh
 let cache = {

@@ -2,7 +2,7 @@
  * Serverless API Client
  *
  * Client for interacting with the serverless VM and command management API.
- * Provides methods for CRUD operations on VMs, commands, and job cache.
+ * Provides methods for CRUD operations on VMs, commands.
  *
  * @fileoverview Client for serverless API endpoints
  */
@@ -179,47 +179,8 @@ export class ServerlessAPIClient {
       });
    }
 
-   // Job Cache Methods
 
-   /**
-    * Get cached jobs for VM
-    * @param {string} vmId - VM ID
-    * @param {Object} options - Query options
-    * @returns {Promise<Array>} List of cached jobs
-    */
-   async getVMJobs(vmId, options = {}) {
-      const params = new URLSearchParams();
-      if (options.limit) params.append("limit", options.limit);
-      if (options.status) params.append("status", options.status);
 
-      const query = params.toString() ? `?${params.toString()}` : "";
-      return await this.request(`/api/vms/${vmId}/jobs${query}`);
-   }
-
-   /**
-    * Update job cache entry
-    * @param {string} jobId - Job ID
-    * @param {Object} jobData - Job data (must include vmId)
-    * @returns {Promise<Object>} Updated job cache entry
-    */
-   async updateJobCache(jobId, jobData) {
-      return await this.request(`/api/jobs/${jobId}`, {
-         method: "PUT",
-         body: JSON.stringify(jobData),
-      });
-   }
-
-   /**
-    * Delete job cache entry
-    * @param {string} jobId - Job ID
-    * @param {string} vmId - VM ID
-    * @returns {Promise<void>}
-    */
-   async deleteJobCache(jobId, vmId) {
-      return await this.request(`/api/jobs/${jobId}?vmId=${vmId}`, {
-         method: "DELETE",
-      });
-   }
 }
 
 /**

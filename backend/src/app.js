@@ -8,12 +8,12 @@ import {
 } from './config/index.js';
 import { Pool } from 'pg';
 import { Router } from 'express';
-import { createLogsRouter } from './routes/logs.js';
-import sshHostsRouter from './routes/ssh-hosts.js';
-import { createVmsRouter } from './routes/vms.js';
-import { commandsRouter } from './routes/commands.js';
-import { createJobsRouter } from './routes/jobs.js';
-import { ExecutionManager } from './lib/execution-manager.js';
+import { commandsRouter } from './features/commands/commands.js';
+import { createJobsRouter } from './features/jobs/jobs.js';
+import { createLogsRouter } from './features/logs/logs.js';
+import sshHostsRouter from './features/ssh-hosts/ssh-hosts.js';
+import { ExecutionManager } from './features/commands/execution-manager.js';
+import { createVmsRouter } from './features/vms/vms.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,8 +34,8 @@ const executionManager = new ExecutionManager(null, db);
 const apiRouter = Router();
 apiRouter.use('/logs', createLogsRouter(db));
 apiRouter.use('/ssh-hosts', sshHostsRouter);
-apiRouter.use('/vms', createVmsRouter(executionManager));
 apiRouter.use('/commands', commandsRouter);
+apiRouter.use('/vms', createVmsRouter());
 apiRouter.use('/jobs', createJobsRouter(db));
 app.use('/api', apiRouter);
 

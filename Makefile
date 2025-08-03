@@ -1,15 +1,3 @@
-.PHONY: validate
-validate:
-	@echo "🔍 Running MVP frontend validation..."
-	@npm run test:mvp-frontend
-
-.PHONY: validate-poc
-validate-poc:
-	@echo "🔍 Running POC site validation..."
-	@npm install playwright
-	@npx playwright install chromium
-	@node ./.test/poc-site-validation.js
-
 .PHONY: help
 help:
 	@echo "DevOps Cockpit POC - Available Commands:"
@@ -18,7 +6,6 @@ help:
 	@echo "  make stop        - Stop all services"
 	@echo "  make clean       - Remove all generated files and Docker volumes"
 	@echo "  make db-init     - (Re)Initialize the database schema"
-	@echo "  make validate    - Run POC site validation tests"
 
 include .env
 export
@@ -27,9 +14,9 @@ export
 setup:
 	@docker-compose up -d postgres
 	@echo "📦 Installing backend dependencies..."
-	@npm install
+	@npm install --prefix backend
 	@echo "📦 Installing frontend dependencies..."
-	@cd frontend && npm install --legacy-peer-deps
+	@cd frontend && npm install
 	@make db-init
 
 .PHONY: run
@@ -48,7 +35,7 @@ db-init:
 dev:
 	@echo "🚀 Starting all services..."
 	@docker-compose up -d postgres
-	@npm run --prefix frontend dev & node src/server.js
+	@npm run --prefix frontend dev & npm run dev:backend --prefix backend
 
 .PHONY: stop
 stop:
@@ -61,3 +48,8 @@ clean: stop
 	@rm -rf node_modules frontend/node_modules frontend/dist
 	@docker-compose down -v --remove-orphans
 	@echo "✅ Cleanup complete"
+
+.PHONY: deploy-serverless
+deploy-serverless:
+	@echo "🚀 Deploying serverless functions..."
+	@./scripts/deploy-serverless.sh

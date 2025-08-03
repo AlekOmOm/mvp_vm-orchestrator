@@ -1,7 +1,7 @@
 <script>
 import { Alert, AlertDescription } from '$lib/components/ui/alert';
 import { Button } from '$lib/components/ui/button';
-import { AlertCircle, CheckCircle, Info } from 'lucide-svelte';
+import { AlertCircle, CheckCircle, Info } from '@lucide/svelte';
 let { alert, ondismiss } = $props();
 function dismiss() { ondismiss?.(alert); }
 </script>

@@ -8,7 +8,7 @@
 <script>
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from '$lib/components/lib/ui/dialog';
   import { Button } from '$lib/components/lib/ui/button';
-  import { Terminal, Plus, Loader2 } from 'lucide-svelte';
+  import { Terminal, Plus, Loader2 } from '@lucide/svelte';
   import CommandTemplate from '$lib/components/lib/models/command/CommandTemplate.svelte';
   import { Input } from '$lib/components/lib/ui/input';
   import { Textarea } from '$lib/components/lib/ui/textarea';

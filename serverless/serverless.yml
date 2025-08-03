@@ -46,12 +46,9 @@ provider:
             - "arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:provider.environment.VMS_TABLE}/index/*"
             - "arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:provider.environment.COMMANDS_TABLE}"
             - "arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:provider.environment.COMMANDS_TABLE}/index/*"
-            - "arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:provider.environment.JOB_CACHE_TABLE}"
-            - "arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:provider.environment.JOB_CACHE_TABLE}/index/*"
   environment:
     VMS_TABLE: ${env:AWS_DYNAMODB_VMS_TABLE, "vm-orchestrator-vms"}
     COMMANDS_TABLE: ${env:AWS_DYNAMODB_COMMANDS_TABLE, "vm-orchestrator-commands"}
-    JOB_CACHE_TABLE: ${env:AWS_DYNAMODB_JOB_CACHE_TABLE, "vm-orchestrator-job-cache"}
 
 functions:
   # VM Management API
@@ -92,20 +89,6 @@ functions:
           method: PUT
       - httpApi:
           path: /api/commands/{id}
-          method: DELETE
-
-  # Job Cache Management
-  jobCacheApi:
-    handler: handlers/job-cache.api
-    events:
-      - httpApi:
-          path: /api/vms/{vmId}/jobs
-          method: GET
-      - httpApi:
-          path: /api/jobs/{jobId}
-          method: PUT
-      - httpApi:
-          path: /api/jobs/{jobId}
           method: DELETE
 
 resources:
@@ -166,37 +149,4 @@ resources:
                 KeyType: RANGE
             Projection:
               ProjectionType: ALL
-        BillingMode: PAY_PER_REQUEST
-
-    # Job Cache Table
-    JobCacheTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: ${self:provider.environment.JOB_CACHE_TABLE}
-        AttributeDefinitions:
-          - AttributeName: vmId
-            AttributeType: S
-          - AttributeName: jobId
-            AttributeType: S
-          - AttributeName: status
-            AttributeType: S
-          - AttributeName: createdAt
-            AttributeType: N
-        KeySchema:
-          - AttributeName: vmId
-            KeyType: HASH
-          - AttributeName: jobId
-            KeyType: RANGE
-        GlobalSecondaryIndexes:
-          - IndexName: StatusIndex
-            KeySchema:
-              - AttributeName: status
-                KeyType: HASH
-              - AttributeName: createdAt
-                KeyType: RANGE
-            Projection:
-              ProjectionType: ALL
-        TimeToLiveSpecification:
-          AttributeName: ttl
-          Enabled: true
         BillingMode: PAY_PER_REQUEST

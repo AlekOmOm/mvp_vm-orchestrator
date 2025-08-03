@@ -1,6 +1,6 @@
 <script>
 import { Button } from '$lib/components/lib/ui/button';
-import { Edit } from 'lucide-svelte';
+import { Edit } from '@lucide/svelte';
 
 // state - global state access
 import { getCommandStore } from '$lib/state/stores.state.svelte.js';

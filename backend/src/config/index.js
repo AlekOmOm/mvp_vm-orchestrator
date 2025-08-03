@@ -53,10 +53,6 @@ const ENV = {
       process.env.AWS_DYNAMODB_VMS_TABLE || "vm-orchestrator-vms",
    AWS_DYNAMODB_COMMANDS_TABLE:
       process.env.AWS_DYNAMODB_COMMANDS_TABLE || "vm-orchestrator-commands",
-   AWS_DYNAMODB_JOB_CACHE_TABLE:
-      process.env.AWS_DYNAMODB_JOB_CACHE_TABLE || "vm-orchestrator-job-cache",
-   AWS_LAMBDA_FUNCTION_NAME:
-      process.env.AWS_LAMBDA_FUNCTION_NAME || "vm-orchestrator-job-cache",
 
    // Serverless API Configuration
    SERVERLESS_API_URL:
@@ -162,12 +158,6 @@ export const AWS_CONFIG = {
    tables: {
       vms: ENV.AWS_DYNAMODB_VMS_TABLE,
       commands: ENV.AWS_DYNAMODB_COMMANDS_TABLE,
-      jobCache: ENV.AWS_DYNAMODB_JOB_CACHE_TABLE,
-   },
-
-   // Lambda function names
-   lambda: {
-      jobCache: ENV.AWS_LAMBDA_FUNCTION_NAME,
    },
 };
 

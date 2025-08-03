@@ -12,8 +12,8 @@ import { v4 as uuidv4 } from "uuid";
 import { TerminalSpawnStrategy } from "./strategies/terminal-spawn-strategy.js";
 import { LocalStreamStrategy } from "./strategies/local-stream-strategy.js";
 import { SshStreamStrategy } from "./strategies/ssh-stream-strategy.js";
-import { getExecutionStrategy } from "../config/commands.js";
-import { serverlessAPI } from "./serverless-api-client.js";
+import { getExecutionStrategy } from "../../config/commands.js";
+import { serverlessAPI } from "../../clients/serverless-api-client.js";
 
 /**
  * ExecutionManager class handles command execution with different strategies

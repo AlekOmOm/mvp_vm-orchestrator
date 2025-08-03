@@ -21,15 +21,41 @@ export function createVMStore(dependencies) {
    return {
       // Svelte store contract
       subscribe: store.subscribe,
+      getState: store.getState,
 
       // Direct state access for runes
-      get vms() {
+      getVMByAlias(alias) {
+         if (!alias) return null;
+         let vm = store.getState().vms?.find((vm) => vm.alias === alias);
+         if (!vm || !vm.id) {
+            // VM not registered, ensure registration to get UUID
+            vm = vmService.ensureRegistered(alias);
+            store.update((state) => ({
+               ...state,
+               vms: [...(state.vms || []), vm],
+            }));
+         }
+         return vm;
+      },
+      getVMById(uuid) {
+         if (!uuid) return null; // Handle null IDs gracefully
+         return store.getState().vms?.find((vm) => vm.id === uuid) || null;
+      },
+      async resolveVM(identifier) {
+         if (!identifier) return null;
+
+         let vm = null;
+         vm = this.getVMByAlias(identifier);
+
+         if (vm === null && identifier.length > 10 && identifier.includes('-')) {
+            vm = this.getVMById(identifier);
+         }
+         return vm;
+      },
+      getVMs() {
          return store.getState().vms;
       },
-      get loading() {
-         return store.getState().loading;
-      },
-      get error() {
+      getError() {
          return store.getState().error;
       },
 
@@ -39,14 +65,11 @@ export function createVMStore(dependencies) {
 
          try {
             const vms = await vmService.loadVMs(forceRefresh);
-            console.log("VMs loaded:", vms.length);
             store.update((state) => ({
-               ...state,
                vms,
                loading: false,
                error: null,
             }));
-            console.log("VMs loaded:", vms.length);
             return vms;
          } catch (error) {
             console.error("Failed to load VMs:", error);
@@ -57,10 +80,6 @@ export function createVMStore(dependencies) {
             }));
             throw error;
          }
-      },
-
-      getVMById(id) {
-         return this.vms?.find((vm) => vm.id === id) || null;
       },
    };
 }

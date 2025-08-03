@@ -8,8 +8,8 @@
  */
 
 import express from 'express';
-import { SSHManager } from '../lib/ssh-manager.js';
-import { syncSshHostsToVms } from '../lib/vm-auto-register.js';
+import { SSHManager } from './ssh-manager.js';
+import { syncSshHostsToVms } from './vm-auto-register.js';
 
 const router = express.Router();
 

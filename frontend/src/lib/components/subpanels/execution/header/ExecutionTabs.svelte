@@ -1,6 +1,6 @@
 <script>
 import { Button } from '$lib/components/lib/ui/button';
-import { Play, History } from 'lucide-svelte';
+import { Play, History } from '@lucide/svelte';
 
 let { activeTab, onchange } = $props();
 function setTab(t) { onchange?.({ tab: t }); }

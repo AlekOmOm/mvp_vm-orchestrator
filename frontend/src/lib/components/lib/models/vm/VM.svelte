@@ -21,7 +21,7 @@
   import VmForm from './crud/VMForm.svelte';
 
   // Props - ONLY identity data
-  let { vm, size = null } = $props();
+  let { vm, size = null} = $props();
 
   let sizeSet = $state(false);
 
@@ -51,8 +51,7 @@
 
   // Event Handlers - self-contained
   function handleVMSelect() {
-    console.log('VM selected:', vm.name);
-    selectVM(vm.id);
+    selectVM(vm);
   }
   
   function handleEdit() {
@@ -65,7 +64,7 @@
   }
 </script>
 
-<div onclick={handleVMSelect} role="button" tabindex="0" class="cursor-pointer">
+<div onclick={handleVMSelect} onkeydown={e => (e.key === 'Enter' || e.key === ' ') && handleVMSelect()} role="button" tabindex="0" class="cursor-pointer">
   <Card class="transition-all duration-200 {isSelected ? 'ring-2 ring-primary border-primary' : 'hover:shadow-md'} {!sizeSet ? '' : `p-${1}`}">
   <CardHeader class="pb-2">
     <div class="flex items-start justify-between">
