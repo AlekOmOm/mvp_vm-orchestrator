@@ -6,6 +6,10 @@ help:
 	@echo "  make stop        - Stop all services"
 	@echo "  make clean       - Remove all generated files and Docker volumes"
 	@echo "  make db-init     - (Re)Initialize the database schema"
+	@echo "  make db-inspect  - Inspect current database schema"
+	@echo "  make db-shell    - Open PostgreSQL shell"
+	@echo "  make db-migrate  - Run database migration for missing columns"
+	@echo "  make db-reset    - Reset database completely"
 
 include .env
 export
@@ -53,3 +57,28 @@ clean: stop
 deploy-serverless:
 	@echo "🚀 Deploying serverless functions..."
 	@./scripts/deploy-serverless.sh
+
+.PHONY: db-inspect
+db-inspect:
+	@echo "🔍 Inspecting database schema..."
+	@docker exec -it $(DB_CONTAINER_NAME) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "\d jobs"
+
+.PHONY: db-shell
+db-shell:
+	@echo "🐚 Opening database shell..."
+	@docker exec -it $(DB_CONTAINER_NAME) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
+
+.PHONY: db-migrate
+db-migrate:
+	@echo "🔄 Running database migration..."
+	@docker exec -i $(DB_CONTAINER_NAME) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'ssh';"
+	@docker exec -i $(DB_CONTAINER_NAME) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS exit_code INTEGER;"
+	@docker exec -i $(DB_CONTAINER_NAME) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE INDEX IF NOT EXISTS idx_jobs_type ON jobs(type);"
+	@docker exec -i $(DB_CONTAINER_NAME) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);"
+	@echo "✅ Database migration complete"
+
+.PHONY: db-reset
+db-reset: stop
+	@echo "🗑️  Resetting database..."
+	@docker-compose down -v
+	@make db-init

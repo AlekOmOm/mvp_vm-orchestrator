@@ -1,5 +1,5 @@
 import { spawn } from "child_process";
-import { SSHManager } from "../../ssh-hosts/ssh-manager.js";
+import { SSHManager } from "../../vms/ssh-manager.js";
 
 export class SshStreamStrategy {
    static spawn(command, sshConfig = {}) {

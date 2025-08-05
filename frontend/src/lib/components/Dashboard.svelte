@@ -4,8 +4,8 @@
   import ThemeToggle from '$lib/components/lib/ui/ThemeToggle.svelte';
 
   // components
-  import VMManagementPanel from '$lib/components/VMManagementPanel.svelte';
-  import ExecutionPanel from '$lib/components/ExecutionPanel.svelte';
+  import VMManagementPanel from '$lib/components/panels/VMManagementPanel.svelte';
+  import ExecutionPanel from '$lib/components/panels/ExecutionPanel.svelte';
 
 </script>
 

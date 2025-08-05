@@ -7,16 +7,19 @@
  * @fileoverview Dependency injection container for services
  */
 
-import { ApiClient } from "./clients/ApiClient.js";
-import { WebSocketClient } from "./clients/WebSocketClient.js";
-import { JobWebSocketService } from "../modules/jobs/JobWebSocketService.js";
-import { VMService } from "../modules/vm/services/VMService.js";
-import { SshHostService } from "../modules/ssh/services/SshHostService.js";
-import { VmsService } from "../modules/vms/services/VmsService.js";
-import { CommandService } from "../modules/commands/CommandService.js";
-import { JobService } from "$lib/modules/jobs/services/JobService.js";
-import { CommandExecutor } from "$lib/core/services/CommandExecutor.svelte.js";
-import { LogService } from "../modules/logs/logService.js";
+import { ApiClient } from "$lib/core/clients/ApiClient.js";
+import { WebSocketClient } from "$lib/core/clients/WebSocketClient.js";
+import { JobWebSocketService } from "$lib/core/clients/websocket/JobWebSocketService.js";
+// features
+import { VMService } from "$lib/features/vm/VMService.js";
+
+import { CommandService } from "$lib/features/command/CommandService.js";
+import { CommandExecutor } from "$lib/core/clients/websocket/CommandExecutor.svelte.js";
+
+import { JobService } from "$lib/features/job/JobService.js";
+
+import { LogService } from "$lib/features/log/logService.js";
+
 import { writable } from "svelte/store";
 
 /**
@@ -26,244 +29,227 @@ import { writable } from "svelte/store";
  * Implements singleton pattern for shared services.
  */
 export class ServiceContainer {
-   constructor() {
-      this.services = new Map();
-      this.singletons = new Map();
-      this.factories = new Map();
-      this.initialized = false;
+  constructor() {
+    this.services = new Map();
+    this.singletons = new Map();
+    this.factories = new Map();
+    this.initialized = false;
 
-      this.registerDefaultServices();
-   }
+    this.registerDefaultServices();
+  }
 
-   /**
-    * Register default services
-    */
-   registerDefaultServices() {
-      this.registerSingleton("apiClient", () => new ApiClient());
-      this.registerSingleton(
-         "sshHostService",
-         (c) => new SshHostService(c.get("apiClient"))
-      );
-      this.registerSingleton(
-         "vmsService",
-         (c) => new VmsService(c.get("apiClient"))
-      );
-      this.registerSingleton(
-         "commandService",
-         (c) => new CommandService(c.get("apiClient"))
-      );
-      this.registerSingleton(
-         "webSocketClient",
-         () => new WebSocketClient("/jobs")
-      );
-      this.registerSingleton(
-         "jobWebSocketService",
-         (c) => new JobWebSocketService(c.get("webSocketClient"))
-      );
-      this.registerSingleton(
-         "jobService",
-         (c) => new JobService(c.get("apiClient"))
-      );
-      this.registerSingleton(
-         "vmService",
-         (c) =>
-            new VMService(
-               c.get("sshHostService"),
-               c.get("vmsService"),
-               c.get("jobWebSocketService")
-            )
-      );
-      this.registerSingleton("commandExecutor", (c) => new CommandExecutor());
+  /**
+   * Register default services
+   */
+  registerDefaultServices() {
+    this.registerSingleton("apiClient", () => new ApiClient());
 
-      this.registerSingleton("commandExecutionService", (c) =>
-         c.get("commandExecutor")
-      );
-      this.registerSingleton(
-         "logService",
-         (c) => new LogService(c.get("apiClient"))
-      );
-   }
+    this.registerSingleton(
+      "commandService",
+      (c) => new CommandService(c.get("apiClient"))
+    );
+    this.registerSingleton(
+      "webSocketClient",
+      () => new WebSocketClient("/jobs")
+    );
+    this.registerSingleton(
+      "jobWebSocketService",
+      (c) => new JobWebSocketService(c.get("webSocketClient"))
+    );
+    this.registerSingleton(
+      "jobService",
+      (c) => new JobService(c.get("apiClient"))
+    );
+    this.registerSingleton(
+      "vmService",
+      (c) => new VMService(c.get("apiClient"))
+    );
+    this.registerSingleton(
+      "logService",
+      (c) => new LogService(c.get("apiClient"))
+    );
 
-   /**
-    * Register a singleton service
-    * @param {string} name - Service name
-    * @param {Function} factory - Factory function
-    */
-   registerSingleton(name, factory) {
-      this.singletons.set(name, { factory, instance: null });
-   }
+    this.registerSingleton("commandExecutor", (c) => new CommandExecutor());
+  }
 
-   /**
-    * Register a service instance
-    * @param {string} name - Service name
-    * @param {any} instance - Service instance
-    */
-   registerInstance(name, instance) {
-      this.services.set(name, instance);
-   }
+  /**
+   * Register a singleton service
+   * @param {string} name - Service name
+   * @param {Function} factory - Factory function
+   */
+  registerSingleton(name, factory) {
+    this.singletons.set(name, { factory, instance: null });
+  }
 
-   /**
-    * Get service instance
-    * @param {string} name - Service name
-    * @returns {any} Service instance
-    */
-   get(name) {
-      // Check for direct instance first
-      if (this.services.has(name)) {
-         return this.services.get(name);
+  /**
+   * Register a service instance
+   * @param {string} name - Service name
+   * @param {any} instance - Service instance
+   */
+  registerInstance(name, instance) {
+    this.services.set(name, instance);
+  }
+
+  /**
+   * Get service instance
+   * @param {string} name - Service name
+   * @returns {any} Service instance
+   */
+  get(name) {
+    // Check for direct instance first
+    if (this.services.has(name)) {
+      return this.services.get(name);
+    }
+
+    // Check for singleton
+    if (this.singletons.has(name)) {
+      const singleton = this.singletons.get(name);
+      if (!singleton.instance) {
+        singleton.instance = singleton.factory(this);
       }
+      return singleton.instance;
+    }
 
-      // Check for singleton
-      if (this.singletons.has(name)) {
-         const singleton = this.singletons.get(name);
-         if (!singleton.instance) {
-            singleton.instance = singleton.factory(this);
-         }
-         return singleton.instance;
-      }
+    // Check for factory
+    if (this.factories.has(name)) {
+      const factory = this.factories.get(name);
+      return factory(this);
+    }
 
-      // Check for factory
-      if (this.factories.has(name)) {
-         const factory = this.factories.get(name);
-         return factory(this);
-      }
+    throw new Error(`Service '${name}' not found`);
+  }
 
-      throw new Error(`Service '${name}' not found`);
-   }
+  /**
+   * Check if service is registered
+   * @param {string} name - Service name
+   * @returns {boolean} True if service is registered
+   */
+  has(name) {
+    return this.services.has(name) || this.singletons.has(name);
+  }
 
-   /**
-    * Check if service is registered
-    * @param {string} name - Service name
-    * @returns {boolean} True if service is registered
-    */
-   has(name) {
-      return this.services.has(name) || this.singletons.has(name);
-   }
+  /**
+   * Initialize all singleton services
+   */
+  async initialize() {
+    if (this.initialized) {
+      console.log("⚠️ Service container already initialized");
+      return;
+    }
 
-   /**
-    * Initialize all singleton services
-    */
-   async initialize() {
-      if (this.initialized) {
-         console.log("⚠️ Service container already initialized");
-         return;
-      }
+    console.log("🚀 Initializing service container...");
 
-      console.log("🚀 Initializing service container...");
+    try {
+      // Initialize core clients
+      const wsClient = this.get("webSocketClient");
 
-      try {
-         // Initialize core clients
-         const wsClient = this.get("webSocketClient");
+      // Connect WebSocket
+      wsClient.connect();
 
-         // Connect WebSocket
-         wsClient.connect();
+      // Wait for WebSocket connection (with timeout)
+      await this.waitForWebSocketConnection(wsClient, 10000);
+      this.get("apiClient");
 
-         // Wait for WebSocket connection (with timeout)
-         await this.waitForWebSocketConnection(wsClient, 10000);
-         this.get("apiClient");
+      // Initialize core services
+      this.get("vmService").initialize();
+      this.get("commandService");
+      this.get("commandExecutor");
+      this.get("logService");
+      this.get("jobService");
 
-         // Initialize core services
-         this.get("vmService");
-         this.get("commandService");
-         this.get("commandExecutor");
-         this.get("logService");
-         this.get("jobService");
+      this.initialized = true;
+    } catch (error) {
+      console.error("❌ Failed to initialize service container:", error);
+      throw error;
+    }
+  }
 
-         this.initialized = true;
-      } catch (error) {
-         console.error("❌ Failed to initialize service container:", error);
-         throw error;
-      }
-   }
+  /**
+   * Wait for WebSocket connection
+   * @param {WebSocketClient} wsClient - WebSocket client
+   * @param {number} timeout - Timeout in milliseconds
+   * @returns {Promise} Promise that resolves when connected
+   */
+  waitForWebSocketConnection(wsClient, timeout = 10000) {
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        unsubscribe();
+        reject(new Error("WebSocket connection timeout"));
+      }, timeout);
 
-   /**
-    * Wait for WebSocket connection
-    * @param {WebSocketClient} wsClient - WebSocket client
-    * @param {number} timeout - Timeout in milliseconds
-    * @returns {Promise} Promise that resolves when connected
-    */
-   waitForWebSocketConnection(wsClient, timeout = 10000) {
-      return new Promise((resolve, reject) => {
-         const timeoutId = setTimeout(() => {
-            unsubscribe();
-            reject(new Error("WebSocket connection timeout"));
-         }, timeout);
-
-         const unsubscribe = wsClient
-            .getConnectionStatus()
-            .subscribe((status) => {
-               if (status === "connected") {
-                  clearTimeout(timeoutId);
-                  unsubscribe();
-                  resolve();
-               } else if (status === "error") {
-                  clearTimeout(timeoutId);
-                  unsubscribe();
-                  reject(new Error("WebSocket connection failed"));
-               }
-            });
+      const unsubscribe = wsClient.getConnectionStatus().subscribe((status) => {
+        if (status === "connected") {
+          clearTimeout(timeoutId);
+          unsubscribe();
+          resolve();
+        } else if (status === "error") {
+          clearTimeout(timeoutId);
+          unsubscribe();
+          reject(new Error("WebSocket connection failed"));
+        }
       });
-   }
+    });
+  }
 
-   /**
-    * Shutdown all services
-    */
-   async shutdown() {
-      console.log("🛑 Shutting down service container...");
+  /**
+   * Shutdown all services
+   */
+  async shutdown() {
+    console.log("🛑 Shutting down service container...");
 
-      try {
-         // Disconnect WebSocket clients
-         if (this.has("webSocketClient")) {
-            const wsClient = this.get("webSocketClient");
-            wsClient.disconnect();
-         }
-
-         // Clear all instances
-         this.services.clear();
-         this.singletons.forEach((singleton) => {
-            singleton.instance = null;
-         });
-
-         this.initialized = false;
-         console.log("✅ Service container shut down");
-      } catch (error) {
-         console.error("❌ Error during service container shutdown:", error);
+    try {
+      // Disconnect WebSocket clients
+      if (this.has("webSocketClient")) {
+        const wsClient = this.get("webSocketClient");
+        wsClient.disconnect();
       }
-   }
 
-   /**
-    * Get all registered service names
-    * @returns {Array<string>} List of service names
-    */
-   getServiceNames() {
-      const names = new Set();
-
-      this.services.forEach((_, name) => names.add(name));
-      this.singletons.forEach((_, name) => names.add(name));
-      this.factories.forEach((_, name) => names.add(name));
-
-      return Array.from(names);
-   }
-
-   /**
-    * Check if container is initialized
-    * @returns {boolean} True if initialized
-    */
-   isInitialized() {
-      return this.initialized;
-   }
-
-   /**
-    * Reset container (for testing)
-    */
-   reset() {
-      this.shutdown();
+      // Clear all instances
       this.services.clear();
-      this.singletons.clear();
-      this.factories.clear();
+      this.singletons.forEach((singleton) => {
+        singleton.instance = null;
+      });
+
       this.initialized = false;
-      this.registerDefaultServices();
-   }
+      console.log("✅ Service container shut down");
+    } catch (error) {
+      console.error("❌ Error during service container shutdown:", error);
+    }
+  }
+
+  /**
+   * Get all registered service names
+   * @returns {Array<string>} List of service names
+   */
+  getServiceNames() {
+    const names = new Set();
+
+    this.services.forEach((_, name) => names.add(name));
+    this.singletons.forEach((_, name) => names.add(name));
+    this.factories.forEach((_, name) => names.add(name));
+
+    return Array.from(names);
+  }
+
+  /**
+   * Check if container is initialized
+   * @returns {boolean} True if initialized
+   */
+  isInitialized() {
+    return this.initialized;
+  }
+
+  /**
+   * Reset container (for testing)
+   */
+  reset() {
+    this.shutdown();
+    this.services.clear();
+    this.singletons.clear();
+    this.factories.clear();
+    this.initialized = false;
+    this.registerDefaultServices();
+  }
 }
 
 /**
@@ -277,7 +263,7 @@ export const serviceContainer = new ServiceContainer();
  * @returns {any} Service instance
  */
 export function getService(serviceName) {
-   return serviceContainer.get(serviceName);
+  return serviceContainer.get(serviceName);
 }
 
 /**
@@ -285,8 +271,8 @@ export function getService(serviceName) {
  * @returns {Promise} Promise that resolves when initialized
  */
 export async function initializeServices() {
-   // services: vmService, commandService, jobService, logService
-   await serviceContainer.initialize();
+  // services: vmService, commandService, jobService, logService
+  await serviceContainer.initialize();
 }
 
 /**
@@ -294,12 +280,12 @@ export async function initializeServices() {
  * @returns {Promise} Promise that resolves when shut down
  */
 export function shutdownServices() {
-   return serviceContainer.shutdown();
+  return serviceContainer.shutdown();
 }
 
 // ✅ ADD: Reactive service health monitoring
 export const serviceHealth = writable({
-   apiClient: "disconnected",
-   jobService: "disconnected",
-   vmService: "ready",
+  apiClient: "disconnected",
+  jobService: "disconnected",
+  vmService: "ready",
 });

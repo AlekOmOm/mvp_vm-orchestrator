@@ -1,10 +1,10 @@
 /* src/lib/state/stores.state.svelte.js */
 import { getService } from "$lib/core/ServiceContainer.js";
-import { createVMStore } from "$lib/stores/vmStore.js";
-import { createCommandStore } from "$lib/stores/commandStore.js";
-import { createJobStore } from "$lib/stores/jobStore.js";
-import { createLogStore } from "$lib/stores/logStore.js";
-import { attachStores } from "./ui.state.svelte.js";
+import { createVMStore } from "$lib/features/vm/vmStore.js";
+import { createCommandStore } from "$lib/features/command/commandStore.js";
+import { createJobStore } from "$lib/features/job/jobStore.js";
+import { createLogStore } from "$lib/features/log/logStore.js";
+import { attachStores, setVms } from "$lib/state/ui.state.svelte.js";
 
 /* ── private reactive fields ── */
 let _vmStore = $state(null);
@@ -69,10 +69,12 @@ export async function initializeStoresData() {
       // Load global data that all components need
       const loadPromises = [];
 
+      // 1. Load VMs first
       if (_vmStore) {
          loadPromises.push(
             _vmStore
-               .loadVMs()
+               .initialize()
+               .then(vms => setVms(vms))
                .catch((err) => console.error("Failed to load VMs:", err))
          );
       }
@@ -96,6 +98,21 @@ export async function initializeStoresData() {
       }
 
       await Promise.all(loadPromises);
+
+      // 2. After VMs are loaded, preload commands for all VMs
+      if (_vmStore && _commandStore) {
+         const loadedVMs = _vmStore.getVMs();
+         if (loadedVMs && loadedVMs.length > 0) {
+            console.log("🔄 Preloading commands for", loadedVMs.length, "VMs...");
+            try {
+               await _commandStore.loadVMsCommands(loadedVMs, "initializeStoresData");
+               console.log("✅ Commands preloaded for all VMs");
+            } catch (err) {
+               console.error("Failed to preload VM commands:", err);
+            }
+         }
+      }
+
       console.log("✅ Store data initialized");
    })();
    return dataInitPromise;

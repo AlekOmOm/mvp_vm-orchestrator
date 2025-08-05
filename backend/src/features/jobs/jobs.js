@@ -2,12 +2,18 @@ import express from 'express';
 import { JobModel } from './JobModel.js';
 
 export function createJobsRouter(db, executionManager) {
-  const router = express.Router();
+  const router = express.Router({ mergeParams: true });
   const jobModel = new JobModel(db, executionManager);
 
   router.get('/', async (req, res) => {
     try {
-      const jobs = await jobModel.getJobs(req?.query?.limit);
+      const { vmId } = req.params;
+      const limit = req.query.limit;
+
+      const jobs = vmId
+        ? await jobModel.getJobsForVM(vmId, limit) // nested
+        : await jobModel.getJobs(limit);           // global
+
       res.json(jobs);
     } catch (error) {
       console.error('Error fetching jobs:', error);
@@ -17,6 +23,7 @@ export function createJobsRouter(db, executionManager) {
 
   router.post('/', async (req, res) => {
     try {
+      req.body.vm_id ??= req.params.vmId;    // only set if nested
       const job = await jobModel.createJob(req.body);
       res.status(201).json(job);
     } catch (error) {

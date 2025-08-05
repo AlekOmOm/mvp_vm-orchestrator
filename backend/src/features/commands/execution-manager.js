@@ -13,7 +13,6 @@ import { TerminalSpawnStrategy } from "./strategies/terminal-spawn-strategy.js";
 import { LocalStreamStrategy } from "./strategies/local-stream-strategy.js";
 import { SshStreamStrategy } from "./strategies/ssh-stream-strategy.js";
 import { getExecutionStrategy } from "../../config/commands.js";
-import { serverlessAPI } from "../../clients/serverless-api-client.js";
 
 /**
  * ExecutionManager class handles command execution with different strategies
@@ -40,20 +39,6 @@ export class ExecutionManager {
    }
 
    /**
-    * Update job cache with job information
-    * @param {string} jobId - Job ID
-    * @param {Object} jobData - Job data to cache
-    */
-   async updateJobCache(jobId, jobData) {
-      try {
-         await serverlessAPI.updateJobCache(jobId, jobData);
-      } catch (error) {
-         console.error("Failed to update job cache:", error);
-         // Don't throw - job cache is not critical for execution
-      }
-   }
-
-   /**
     * Executes a command using the appropriate strategy
     * @param {string} command - Command to execute
     * @param {string} [type="stream"] - Execution type (stream, terminal, ssh)
@@ -75,29 +60,15 @@ export class ExecutionManager {
          throw new Error("Command must be a non-empty string");
       }
 
-      if (typeof type !== "string") {
-         throw new Error("Type must be a string");
-      }
-
       const jobId = uuidv4();
+      console.log(`🚀 Starting job ${jobId}: ${command} (type: ${type})`);
 
       try {
-         // Insert job record into database
+         // Insert job record into database with vmId
          await this.db.query(
-            "INSERT INTO jobs (id, command, type, status, started_at) VALUES ($1, $2, $3, $4, NOW())",
-            [jobId, command, type, "running"]
+            "INSERT INTO jobs (id, vm_id, command, type, status, started_at) VALUES ($1, $2, $3, $4, $5, NOW())",
+            [jobId, vmId, command, type, "running"]
          );
-
-         // Update job cache if vmId is provided
-         if (vmId) {
-            await this.updateJobCache(jobId, {
-               vmId,
-               status: "running",
-               command,
-               type,
-               createdAt: Date.now(),
-            });
-         }
 
          let result;
          switch (type) {
@@ -116,16 +87,7 @@ export class ExecutionManager {
 
          return { jobId, ...result };
       } catch (error) {
-         // Update job status to failed if database insertion succeeded
-         try {
-            await this.db.query(
-               "UPDATE jobs SET status = $1, finished_at = NOW() WHERE id = $2",
-               ["failed", jobId]
-            );
-         } catch (dbError) {
-            console.error("Failed to update job status after error:", dbError);
-         }
-
+         console.error(`Job ${jobId} failed:`, error);
          throw error;
       }
    }
@@ -351,7 +313,7 @@ export class ExecutionManager {
    async logJobEvent(jobId, stream, chunk) {
       try {
          await this.db.query(
-            "INSERT INTO job_events (job_id, stream, chunk) VALUES ($1, $2, $3)",
+            "INSERT INTO job_logs (job_id, ts, stream, data) VALUES ($1, NOW(), $2, $3)",
             [jobId, stream, chunk]
          );
       } catch (error) {

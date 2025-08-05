@@ -61,6 +61,15 @@ export class JobModel {
     return logModel.getLogsForJob(jobId, limit);
   }
 
+  async getJobsForVM(vmId, limit = 50) {
+    const cappedLimit = Math.min(parseInt(limit, 10) || 50, 100);
+    const result = await this.db.query(
+      'SELECT * FROM jobs WHERE vm_id = $1 ORDER BY started_at DESC LIMIT $2',
+      [vmId, cappedLimit]
+    );
+    return result.rows;
+  }
+
   async cacheJobs(jobs) {
     if (!Array.isArray(jobs) || jobs.length === 0) {
       return;

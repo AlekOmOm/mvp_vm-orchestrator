@@ -16,12 +16,16 @@ CREATE TABLE jobs (
   id         UUID PRIMARY KEY,
   vm_id      TEXT  NOT NULL,           -- mirrors DynamoDB vmId
   command    TEXT  NOT NULL,
+  type       TEXT  NOT NULL,           -- execution type (ssh, stream, terminal)
   status     TEXT  NOT NULL CHECK (status IN ('running','success','failed')),
   started_at TIMESTAMPTZ,
   finished_at TIMESTAMPTZ,
+  exit_code  INTEGER,                  -- process exit code
   cached_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_jobs_vm_id ON jobs(vm_id);
+CREATE INDEX idx_jobs_status ON jobs(status);
+CREATE INDEX idx_jobs_type ON jobs(type);
 
 -- Job logs (cache)
 CREATE TABLE job_logs (

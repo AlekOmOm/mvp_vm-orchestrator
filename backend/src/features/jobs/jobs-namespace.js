@@ -11,12 +11,12 @@ import { COMMANDS } from "./../../config/index.js";
  */
 function getBrowserInfo(userAgent) {
    if (!userAgent) return "Unknown";
-   
+
    if (userAgent.includes("Chrome")) return "Chrome";
    if (userAgent.includes("Firefox")) return "Firefox";
    if (userAgent.includes("Safari")) return "Safari";
    if (userAgent.includes("Edge")) return "Edge";
-   
+
    return "Other";
 }
 
@@ -27,20 +27,20 @@ function getBrowserInfo(userAgent) {
  */
 export function setupJobsNamespace(io, executionManager) {
    const jobsNamespace = io.of("/jobs");
-   
+
    console.log("🔧 Setting up enhanced /jobs namespace");
 
    jobsNamespace.on("connection", (socket) => {
       // Enhanced connection logging
       const clientInfo = {
          id: socket.id,
-         userAgent: socket.handshake.headers['user-agent'],
+         userAgent: socket.handshake.headers["user-agent"],
          ip: socket.handshake.address,
-         timestamp: new Date().toISOString()
+         timestamp: new Date().toISOString(),
       };
-      
+
       socket.clientInfo = clientInfo;
-      
+
       console.log(`🔗 New client connected to /jobs namespace:
       ID: ${clientInfo.id}
       Browser: ${getBrowserInfo(clientInfo.userAgent)}
@@ -68,7 +68,7 @@ export function setupJobsNamespace(io, executionManager) {
                   console.error(`❌ Unknown legacy command: ${commandKey}`);
                   socket.emit("job:error", {
                      error: `Unknown command: ${commandKey}`,
-                     timestamp: new Date().toISOString()
+                     timestamp: new Date().toISOString(),
                   });
                   return;
                }
@@ -76,18 +76,30 @@ export function setupJobsNamespace(io, executionManager) {
                command = commandConfig.cmd;
                type = commandConfig.type || "stream";
                hostAlias = commandConfig.hostAlias;
-               
-               console.log(`📋 Legacy command resolved: ${commandKey} -> ${command}`);
+
+               console.log(
+                  `📋 Legacy command resolved: ${commandKey} -> ${command}`
+               );
             } else if (typeof data === "object" && data !== null) {
                // New format: data is an object with command details
-               ({ command, type = "stream", workingDir, hostAlias, vmId } = data);
-               
-               console.log(`📋 Object command: ${command} (type: ${type}, host: ${hostAlias || 'local'})`);
+               ({
+                  command,
+                  type = "stream",
+                  workingDir,
+                  hostAlias,
+                  vmId,
+               } = data);
+
+               console.log(
+                  `📋 Object command: ${command} (type: ${type}, host: ${
+                     hostAlias || "local"
+                  }, vmId: ${vmId})`
+               );
             } else {
                console.error("❌ Invalid command data format:", typeof data);
                socket.emit("job:error", {
                   error: "Invalid command data format",
-                  timestamp: new Date().toISOString()
+                  timestamp: new Date().toISOString(),
                });
                return;
             }
@@ -96,13 +108,13 @@ export function setupJobsNamespace(io, executionManager) {
                console.error("❌ Invalid command:", command);
                socket.emit("job:error", {
                   error: "Command is required and must be a string",
-                  timestamp: new Date().toISOString()
+                  timestamp: new Date().toISOString(),
                });
                return;
             }
 
-            // Execute the command
-            console.log(`🚀 Executing command: ${command}`);
+            // Execute the command with vmId
+            console.log(`🚀 Executing command: ${command} (vmId: ${vmId})`);
             const result = await executionManager.executeWithStrategy(
                command,
                type,
@@ -113,7 +125,9 @@ export function setupJobsNamespace(io, executionManager) {
 
             // Join the job room for real-time updates
             socket.join(result.jobId);
-            console.log(`🔗 Client ${clientInfo.id} joined job room: ${result.jobId}`);
+            console.log(
+               `🔗 Client ${clientInfo.id} joined job room: ${result.jobId}`
+            );
 
             socket.emit("job:started", {
                jobId: result.jobId,
@@ -122,16 +136,16 @@ export function setupJobsNamespace(io, executionManager) {
                vmId,
                timestamp: new Date().toISOString(),
             });
-            
+
             console.log(`✅ Job started successfully: ${result.jobId}`);
          } catch (error) {
             console.error("🚨 Command execution error:", {
                client: clientInfo.id,
                error: error.message,
                stack: error.stack,
-               data
+               data,
             });
-            
+
             socket.emit("job:error", {
                error: error.message,
                timestamp: new Date().toISOString(),
@@ -144,10 +158,13 @@ export function setupJobsNamespace(io, executionManager) {
        */
       socket.on("join-job", (jobId) => {
          if (!jobId || typeof jobId !== "string") {
-            console.error(`❌ Invalid job ID from client ${clientInfo.id}:`, jobId);
-            socket.emit("job:error", { 
+            console.error(
+               `❌ Invalid job ID from client ${clientInfo.id}:`,
+               jobId
+            );
+            socket.emit("job:error", {
                error: "Valid job ID is required",
-               timestamp: new Date().toISOString()
+               timestamp: new Date().toISOString(),
             });
             return;
          }
@@ -253,8 +270,29 @@ export function setupJobsNamespace(io, executionManager) {
  * @param {ExecutionManager} executionManager - Execution manager to enhance
  * @param {Namespace} jobsNamespace - Jobs namespace instance
  */
-export function enhanceExecutionManagerForNamespace(executionManager, jobsNamespace) {
+export function enhanceExecutionManagerForNamespace(
+   executionManager,
+   jobsNamespace
+) {
    console.log("🔧 Enhancing ExecutionManager with namespace support");
+
+   /**
+    * Add updateJobStatus method
+    */
+   executionManager.updateJobStatus = async function (
+      jobId,
+      status,
+      exitCode = null
+   ) {
+      try {
+         await this.db.query(
+            "UPDATE jobs SET status = $1, finished_at = NOW(), exit_code = $2 WHERE id = $3",
+            [status, exitCode, jobId]
+         );
+      } catch (error) {
+         console.error(`Failed to update job status for ${jobId}:`, error);
+      }
+   };
 
    /**
     * Enhanced stream handlers with better error handling and logging
@@ -269,11 +307,17 @@ export function enhanceExecutionManagerForNamespace(executionManager, jobsNamesp
          try {
             const chunk = data.toString();
             const chunkSize = chunk.length;
-            
+
             // Log chunk info (truncated for readability)
-            const preview = chunk.length > 100 ? chunk.substring(0, 100) + "..." : chunk;
-            console.log(`📤 stdout [${jobId}] (${chunkSize} bytes): ${preview.replace(/\n/g, '\\n')}`);
-            
+            const preview =
+               chunk.length > 100 ? chunk.substring(0, 100) + "..." : chunk;
+            console.log(
+               `📤 stdout [${jobId}] (${chunkSize} bytes): ${preview.replace(
+                  /\n/g,
+                  "\\n"
+               )}`
+            );
+
             await this.logJobEvent(jobId, "stdout", chunk);
 
             // Broadcast to job room in namespace
@@ -298,11 +342,17 @@ export function enhanceExecutionManagerForNamespace(executionManager, jobsNamesp
          try {
             const chunk = data.toString();
             const chunkSize = chunk.length;
-            
+
             // Log chunk info (truncated for readability)
-            const preview = chunk.length > 100 ? chunk.substring(0, 100) + "..." : chunk;
-            console.log(`📤 stderr [${jobId}] (${chunkSize} bytes): ${preview.replace(/\n/g, '\\n')}`);
-            
+            const preview =
+               chunk.length > 100 ? chunk.substring(0, 100) + "..." : chunk;
+            console.log(
+               `📤 stderr [${jobId}] (${chunkSize} bytes): ${preview.replace(
+                  /\n/g,
+                  "\\n"
+               )}`
+            );
+
             await this.logJobEvent(jobId, "stderr", chunk);
 
             // Broadcast to job room in namespace
@@ -325,10 +375,12 @@ export function enhanceExecutionManagerForNamespace(executionManager, jobsNamesp
        */
       process.on("close", async (code, signal) => {
          try {
-            console.log(`🏁 Process finished for job ${jobId}: code=${code}, signal=${signal}`);
-            
-            const status = code === 0 ? "completed" : "failed";
-            
+            console.log(
+               `🏁 Process finished for job ${jobId}: code=${code}, signal=${signal}`
+            );
+
+            const status = code === 0 ? "success" : "failed";
+
             // Update job status
             await this.updateJobStatus(jobId, status, code);
 
@@ -343,12 +395,15 @@ export function enhanceExecutionManagerForNamespace(executionManager, jobsNamesp
 
             // Legacy compatibility
             this.io.emit("job-finished", { jobId, status, exitCode: code });
-            
+
             // Cleanup
             this.activeJobs.delete(jobId);
             console.log(`🧹 Cleaned up job: ${jobId}`);
          } catch (error) {
-            console.error(`🚨 Error handling process close for job ${jobId}:`, error);
+            console.error(
+               `🚨 Error handling process close for job ${jobId}:`,
+               error
+            );
          }
       });
 
@@ -358,8 +413,8 @@ export function enhanceExecutionManagerForNamespace(executionManager, jobsNamesp
       process.on("error", async (error) => {
          try {
             console.error(`🚨 Process error for job ${jobId}:`, error);
-            
-            await this.updateJobStatus(jobId, "error", -1);
+
+            await this.updateJobStatus(jobId, "failed", -1);
 
             jobsNamespace.to(jobId).emit("job:error", {
                jobId,
@@ -370,7 +425,10 @@ export function enhanceExecutionManagerForNamespace(executionManager, jobsNamesp
             // Cleanup
             this.activeJobs.delete(jobId);
          } catch (logError) {
-            console.error(`🚨 Error handling process error for job ${jobId}:`, logError);
+            console.error(
+               `🚨 Error handling process error for job ${jobId}:`,
+               logError
+            );
          }
       });
    };
